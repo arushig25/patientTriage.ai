@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Heart, 
   Wind, 
@@ -14,7 +14,10 @@ import {
   ArrowRight,
   Sparkles,
   UserCheck,
-  Search
+  Search,
+  Sliders,
+  Check,
+  AlertCircle
 } from 'lucide-react';
 import AcuityBadge, { ACUITY_CONFIG } from './AcuityBadge';
 import ECGWaveform from './ECGWaveform';
@@ -23,16 +26,41 @@ export default function TriageNurseView({
   patients = [], 
   selectedPatient, 
   onSelectPatient, 
-  onRecordOverride 
+  onRecordOverride,
+  onUpdatePatient
 }) {
   const [activeTab, setActiveTab] = useState('patient');
   const [searchTerm, setSearchTerm] = useState('');
   
   // Override form state
-  const [overrideAcuity, setOverrideAcuity] = useState(3);
+  const patient = selectedPatient || patients[0];
+  const [overrideAcuity, setOverrideAcuity] = useState(patient?.triage?.acuity || 3);
   const [overrideReason, setOverrideReason] = useState('');
   const [clinicianId, setClinicianId] = useState('RN-1042');
   const [overrideStatus, setOverrideStatus] = useState(null);
+
+  // Live Vital Edit Mode state
+  const [isEditingVitals, setIsEditingVitals] = useState(false);
+  const [editHr, setEditHr] = useState(patient?.vitals?.hr || 75);
+  const [editRr, setEditRr] = useState(patient?.vitals?.rr || 16);
+  const [editSpo2, setEditSpo2] = useState(patient?.vitals?.spo2 || 98);
+  const [editSbp, setEditSbp] = useState(patient?.vitals?.sbp || 120);
+  const [editTemp, setEditTemp] = useState(patient?.vitals?.temp || 36.8);
+  const [editAvpu, setEditAvpu] = useState(patient?.vitals?.avpu || 'A');
+
+  // Keep inputs in sync when selecting another patient
+  useEffect(() => {
+    if (patient) {
+      setOverrideAcuity(patient.triage?.acuity || 3);
+      setEditHr(patient.vitals?.hr || 75);
+      setEditRr(patient.vitals?.rr || 16);
+      setEditSpo2(patient.vitals?.spo2 || 98);
+      setEditSbp(patient.vitals?.sbp || 120);
+      setEditTemp(patient.vitals?.temp || 36.8);
+      setEditAvpu(patient.vitals?.avpu || 'A');
+      setOverrideStatus(null);
+    }
+  }, [patient?.patient_id]);
 
   // Live simulator state
   const [simAge, setSimAge] = useState(45);
@@ -53,26 +81,44 @@ export default function TriageNurseView({
     p.complaint.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const patient = selectedPatient || patients[0];
-
-  const handleOverrideSubmit = async (e) => {
-    e.preventDefault();
+  // Instant real-time override trigger
+  const triggerRealtimeOverride = async (targetLevel, reasonText) => {
     if (!patient) return;
-    if (!overrideReason.trim()) {
-      alert('A clinical justification is required for an override.');
-      return;
-    }
+    const finalReason = reasonText || overrideReason || 'Direct clinician clinical adjustment';
+    setOverrideAcuity(targetLevel);
+    setOverrideReason(finalReason);
+
+    setOverrideStatus(`Updating to Level ${targetLevel} in real time...`);
     const res = await onRecordOverride({
       patient_id: patient.patient_id,
       from_acuity: patient.triage.acuity,
-      to_acuity: Number(overrideAcuity),
-      reason: overrideReason,
+      to_acuity: Number(targetLevel),
+      reason: finalReason,
       clinician: clinicianId,
     });
     if (res && res.success) {
-      setOverrideStatus(`✓ Override recorded: Level ${patient.triage.acuity} → Level ${overrideAcuity} by ${clinicianId}. Authenticated into SHA-256 audit log.`);
-      setOverrideReason('');
+      setOverrideStatus(`✓ Real-Time Override Active: Assigned Level ${targetLevel} by ${clinicianId}. Authenticated to SHA-256 audit log.`);
     }
+  };
+
+  const handleQuickReasonClick = (reasonChip) => {
+    setOverrideReason(reasonChip);
+    triggerRealtimeOverride(overrideAcuity, reasonChip);
+  };
+
+  const handleSaveVitals = async () => {
+    if (!patient || !onUpdatePatient) return;
+    await onUpdatePatient(patient.patient_id, {
+      vitals: {
+        hr: Number(editHr),
+        rr: Number(editRr),
+        spo2: Number(editSpo2),
+        sbp: Number(editSbp),
+        temp: Number(editTemp),
+        avpu: editAvpu,
+      }
+    });
+    setIsEditingVitals(false);
   };
 
   const handleRunSimulator = async () => {
@@ -105,12 +151,21 @@ export default function TriageNurseView({
   };
 
   if (!patient && patients.length === 0) {
-    return <div className="p-8 text-center text-clinical-400">Loading emergency patients...</div>;
+    return <div className="p-8 text-center text-clinical-400 font-bold">Loading emergency patients...</div>;
   }
 
   const v = patient ? patient.vitals : {};
   const t = patient ? patient.triage : {};
   const isPeds = patient ? patient.is_pediatric : false;
+  const isOverridden = patient ? patient.is_overridden : false;
+
+  const quickReasons = [
+    'Clinical Gestalt / Intuition',
+    'High-Risk Medical History',
+    'Deteriorating Presentation',
+    'Physician Direct Order',
+    'Borderline Vital Parameters',
+  ];
 
   return (
     <div className="space-y-6">
@@ -331,6 +386,9 @@ export default function TriageNurseView({
                         <div className="flex items-center gap-1.5">
                           <span className="font-mono text-xs font-black text-brand-700 dark:text-brand-400">{p.patient_id}</span>
                           <span className="text-xs font-black text-clinical-900 dark:text-white truncate">{p.name}</span>
+                          {p.is_overridden && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" title="Overridden by clinician"></span>
+                          )}
                         </div>
                         <div className="text-[11px] text-clinical-500 dark:text-clinical-400 truncate mt-0.5 font-medium">
                           {p.complaint}
@@ -357,6 +415,11 @@ export default function TriageNurseView({
                     <span className="text-xs px-2 py-0.5 rounded-lg bg-clinical-100 dark:bg-clinical-800 text-brand-700 dark:text-brand-300 font-mono font-black border border-clinical-200 dark:border-clinical-700">
                       {patient.patient_id}
                     </span>
+                    {isOverridden && (
+                      <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-500/40 text-[10px] font-black uppercase">
+                        Override Active
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-clinical-500 mt-1 font-medium">
                     Age: <b className="text-clinical-900 dark:text-slate-200">{Math.round(patient.age)} years</b> · Category:{' '}
@@ -401,107 +464,191 @@ export default function TriageNurseView({
               )}
             </div>
 
-            {/* Vital Signs Grid */}
+            {/* Vital Signs Grid with Live Editing capability */}
             <div className="card-surface p-5 space-y-3">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-xs font-black uppercase tracking-wider text-clinical-500 flex items-center gap-1.5">
                   <Heart className="w-3.5 h-3.5 text-rose-500" />
                   <span>Clinical Vital Telemetry</span>
                 </h3>
-                <span className="text-[10px] text-clinical-400 font-mono font-bold">6 Observed</span>
+                <button
+                  onClick={() => setIsEditingVitals(!isEditingVitals)}
+                  className="text-xs font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1"
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>{isEditingVitals ? 'Done Editing' : 'Adjust Vitals Live'}</span>
+                </button>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {/* Heart Rate */}
-                <div className="card-surface-subtle p-3">
-                  <div className="flex items-center justify-between text-[11px] text-clinical-500 font-semibold">
-                    <span>Heart Rate</span>
-                    <Heart className="w-3 h-3 text-rose-500" />
+              {isEditingVitals ? (
+                /* Live Vital Adjustment Panel */
+                <div className="p-4 rounded-xl bg-clinical-50 dark:bg-clinical-950 border border-brand-300 dark:border-brand-500/40 space-y-3">
+                  <div className="text-xs font-black text-brand-700 dark:text-brand-400">
+                    Live Vitals Editor (Recalculates AI in Real-Time):
                   </div>
-                  <div className="text-lg font-mono font-black text-clinical-900 dark:text-white mt-1">
-                    {v.hr ? `${Math.round(v.hr)}` : '—'}{' '}
-                    <span className="text-[10px] font-medium text-clinical-400">bpm</span>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <span className="font-bold text-clinical-600">Heart Rate (bpm)</span>
+                      <input
+                        type="number"
+                        value={editHr}
+                        onChange={(e) => setEditHr(e.target.value)}
+                        className="w-full mt-1 bg-white dark:bg-clinical-900 border border-clinical-200 dark:border-clinical-800 rounded-lg px-2 py-1 font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <span className="font-bold text-clinical-600">Resp. Rate (/min)</span>
+                      <input
+                        type="number"
+                        value={editRr}
+                        onChange={(e) => setEditRr(e.target.value)}
+                        className="w-full mt-1 bg-white dark:bg-clinical-900 border border-clinical-200 dark:border-clinical-800 rounded-lg px-2 py-1 font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <span className="font-bold text-clinical-600">SpO₂ (%)</span>
+                      <input
+                        type="number"
+                        value={editSpo2}
+                        onChange={(e) => setEditSpo2(e.target.value)}
+                        className="w-full mt-1 bg-white dark:bg-clinical-900 border border-clinical-200 dark:border-clinical-800 rounded-lg px-2 py-1 font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <span className="font-bold text-clinical-600">Systolic BP (mmHg)</span>
+                      <input
+                        type="number"
+                        value={editSbp}
+                        onChange={(e) => setEditSbp(e.target.value)}
+                        className="w-full mt-1 bg-white dark:bg-clinical-900 border border-clinical-200 dark:border-clinical-800 rounded-lg px-2 py-1 font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <span className="font-bold text-clinical-600">Temp (°C)</span>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={editTemp}
+                        onChange={(e) => setEditTemp(e.target.value)}
+                        className="w-full mt-1 bg-white dark:bg-clinical-900 border border-clinical-200 dark:border-clinical-800 rounded-lg px-2 py-1 font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <span className="font-bold text-clinical-600">AVPU</span>
+                      <select
+                        value={editAvpu}
+                        onChange={(e) => setEditAvpu(e.target.value)}
+                        className="w-full mt-1 bg-white dark:bg-clinical-900 border border-clinical-200 dark:border-clinical-800 rounded-lg px-2 py-1 font-bold"
+                      >
+                        <option value="A">Alert (A)</option>
+                        <option value="V">Voice (V)</option>
+                        <option value="P">Pain (P)</option>
+                        <option value="U">Unresponsive (U)</option>
+                      </select>
+                    </div>
                   </div>
-                  <div className="mt-2">
-                    <ECGWaveform hr={v.hr} isCritical={v.hr >= 140 || v.hr < 45} isWarning={v.hr >= 100} />
+                  <div className="pt-2 flex justify-end">
+                    <button
+                      onClick={handleSaveVitals}
+                      className="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-xs"
+                    >
+                      Save & Recalculate AI Output
+                    </button>
                   </div>
                 </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {/* Heart Rate */}
+                  <div className="card-surface-subtle p-3">
+                    <div className="flex items-center justify-between text-[11px] text-clinical-500 font-semibold">
+                      <span>Heart Rate</span>
+                      <Heart className="w-3 h-3 text-rose-500" />
+                    </div>
+                    <div className="text-lg font-mono font-black text-clinical-900 dark:text-white mt-1">
+                      {v.hr ? `${Math.round(v.hr)}` : '—'}{' '}
+                      <span className="text-[10px] font-medium text-clinical-400">bpm</span>
+                    </div>
+                    <div className="mt-2">
+                      <ECGWaveform hr={v.hr} isCritical={v.hr >= 140 || v.hr < 45} isWarning={v.hr >= 100} />
+                    </div>
+                  </div>
 
-                {/* Respiratory Rate */}
-                <div className="card-surface-subtle p-3">
-                  <div className="flex items-center justify-between text-[11px] text-clinical-500 font-semibold">
-                    <span>Resp. Rate</span>
-                    <Wind className="w-3 h-3 text-sky-500" />
+                  {/* Respiratory Rate */}
+                  <div className="card-surface-subtle p-3">
+                    <div className="flex items-center justify-between text-[11px] text-clinical-500 font-semibold">
+                      <span>Resp. Rate</span>
+                      <Wind className="w-3 h-3 text-sky-500" />
+                    </div>
+                    <div className="text-lg font-mono font-black text-clinical-900 dark:text-white mt-1">
+                      {v.rr ? `${Math.round(v.rr)}` : '—'}{' '}
+                      <span className="text-[10px] font-medium text-clinical-400">/min</span>
+                    </div>
+                    <span className={`text-[10px] font-black ${v.rr >= 24 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      {v.rr >= 30 ? '🚨 Tachypnea' : v.rr >= 24 ? '⚠️ High' : '✓ Normal'}
+                    </span>
                   </div>
-                  <div className="text-lg font-mono font-black text-clinical-900 dark:text-white mt-1">
-                    {v.rr ? `${Math.round(v.rr)}` : '—'}{' '}
-                    <span className="text-[10px] font-medium text-clinical-400">/min</span>
-                  </div>
-                  <span className={`text-[10px] font-black ${v.rr >= 24 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                    {v.rr >= 30 ? '🚨 Tachypnea' : v.rr >= 24 ? '⚠️ High' : '✓ Normal'}
-                  </span>
-                </div>
 
-                {/* SpO2 */}
-                <div className="card-surface-subtle p-3">
-                  <div className="flex items-center justify-between text-[11px] text-clinical-500 font-semibold">
-                    <span>Oxygen Sat.</span>
-                    <Droplets className="w-3 h-3 text-teal-500" />
+                  {/* SpO2 */}
+                  <div className="card-surface-subtle p-3">
+                    <div className="flex items-center justify-between text-[11px] text-clinical-500 font-semibold">
+                      <span>Oxygen Sat.</span>
+                      <Droplets className="w-3 h-3 text-teal-500" />
+                    </div>
+                    <div className="text-lg font-mono font-black text-clinical-900 dark:text-white mt-1">
+                      {v.spo2 ? `${Math.round(v.spo2)}` : '—'}{' '}
+                      <span className="text-[10px] font-medium text-clinical-400">%</span>
+                    </div>
+                    <span className={`text-[10px] font-black ${v.spo2 < 90 ? 'text-red-600 dark:text-red-400' : v.spo2 < 94 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      {v.spo2 < 90 ? '🚨 Critical Hypoxia' : v.spo2 < 94 ? '⚠️ Low' : '✓ Adequate'}
+                    </span>
                   </div>
-                  <div className="text-lg font-mono font-black text-clinical-900 dark:text-white mt-1">
-                    {v.spo2 ? `${Math.round(v.spo2)}` : '—'}{' '}
-                    <span className="text-[10px] font-medium text-clinical-400">%</span>
-                  </div>
-                  <span className={`text-[10px] font-black ${v.spo2 < 90 ? 'text-red-600 dark:text-red-400' : v.spo2 < 94 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                    {v.spo2 < 90 ? '🚨 Critical Hypoxia' : v.spo2 < 94 ? '⚠️ Low' : '✓ Adequate'}
-                  </span>
-                </div>
 
-                {/* Systolic BP */}
-                <div className="card-surface-subtle p-3">
-                  <div className="flex items-center justify-between text-[11px] text-clinical-500 font-semibold">
-                    <span>Blood Pressure</span>
-                    <Gauge className="w-3 h-3 text-indigo-500" />
+                  {/* Systolic BP */}
+                  <div className="card-surface-subtle p-3">
+                    <div className="flex items-center justify-between text-[11px] text-clinical-500 font-semibold">
+                      <span>Blood Pressure</span>
+                      <Gauge className="w-3 h-3 text-indigo-500" />
+                    </div>
+                    <div className="text-lg font-mono font-black text-clinical-900 dark:text-white mt-1">
+                      {v.sbp ? `${Math.round(v.sbp)}` : '—'}{' '}
+                      <span className="text-[10px] font-medium text-clinical-400">mmHg</span>
+                    </div>
+                    <span className={`text-[10px] font-black ${v.sbp < 90 ? 'text-red-600 dark:text-red-400' : 'text-clinical-500'}`}>
+                      {v.sbp < 90 ? '🚨 Hypotensive' : 'Systolic'}
+                    </span>
                   </div>
-                  <div className="text-lg font-mono font-black text-clinical-900 dark:text-white mt-1">
-                    {v.sbp ? `${Math.round(v.sbp)}` : '—'}{' '}
-                    <span className="text-[10px] font-medium text-clinical-400">mmHg</span>
-                  </div>
-                  <span className={`text-[10px] font-black ${v.sbp < 90 ? 'text-red-600 dark:text-red-400' : 'text-clinical-500'}`}>
-                    {v.sbp < 90 ? '🚨 Hypotensive' : 'Systolic'}
-                  </span>
-                </div>
 
-                {/* Temperature */}
-                <div className="card-surface-subtle p-3">
-                  <div className="flex items-center justify-between text-[11px] text-clinical-500 font-semibold">
-                    <span>Temperature</span>
-                    <Thermometer className="w-3 h-3 text-amber-500" />
+                  {/* Temperature */}
+                  <div className="card-surface-subtle p-3">
+                    <div className="flex items-center justify-between text-[11px] text-clinical-500 font-semibold">
+                      <span>Temperature</span>
+                      <Thermometer className="w-3 h-3 text-amber-500" />
+                    </div>
+                    <div className="text-lg font-mono font-black text-clinical-900 dark:text-white mt-1">
+                      {v.temp ? `${v.temp.toFixed(1)}` : '—'}{' '}
+                      <span className="text-[10px] font-medium text-clinical-400">°C</span>
+                    </div>
+                    <span className={`text-[10px] font-black ${v.temp >= 38.5 ? 'text-amber-600 dark:text-amber-400' : 'text-clinical-500'}`}>
+                      {v.temp >= 38.5 ? '⚠️ Febrile' : 'Normothermic'}
+                    </span>
                   </div>
-                  <div className="text-lg font-mono font-black text-clinical-900 dark:text-white mt-1">
-                    {v.temp ? `${v.temp.toFixed(1)}` : '—'}{' '}
-                    <span className="text-[10px] font-medium text-clinical-400">°C</span>
-                  </div>
-                  <span className={`text-[10px] font-black ${v.temp >= 38.5 ? 'text-amber-600 dark:text-amber-400' : 'text-clinical-500'}`}>
-                    {v.temp >= 38.5 ? '⚠️ Febrile' : 'Normothermic'}
-                  </span>
-                </div>
 
-                {/* AVPU */}
-                <div className="card-surface-subtle p-3">
-                  <div className="flex items-center justify-between text-[11px] text-clinical-500 font-semibold">
-                    <span>Consciousness</span>
-                    <Brain className="w-3 h-3 text-purple-500" />
+                  {/* AVPU */}
+                  <div className="card-surface-subtle p-3">
+                    <div className="flex items-center justify-between text-[11px] text-clinical-500 font-semibold">
+                      <span>Consciousness</span>
+                      <Brain className="w-3 h-3 text-purple-500" />
+                    </div>
+                    <div className="text-lg font-mono font-black text-clinical-900 dark:text-white mt-1">
+                      {v.avpu || 'A'}{' '}
+                      <span className="text-[10px] font-medium text-clinical-400">(AVPU)</span>
+                    </div>
+                    <span className={`text-[10px] font-black ${v.avpu && v.avpu !== 'A' ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                      {v.avpu && v.avpu !== 'A' ? '🚨 Altered' : '✓ Alert'}
+                    </span>
                   </div>
-                  <div className="text-lg font-mono font-black text-clinical-900 dark:text-white mt-1">
-                    {v.avpu || 'A'}{' '}
-                    <span className="text-[10px] font-medium text-clinical-400">(AVPU)</span>
-                  </div>
-                  <span className={`text-[10px] font-black ${v.avpu && v.avpu !== 'A' ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-                    {v.avpu && v.avpu !== 'A' ? '🚨 Altered' : '✓ Alert'}
-                  </span>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Historical EHR Baseline */}
@@ -537,12 +684,19 @@ export default function TriageNurseView({
             </div>
           </div>
 
-          {/* RIGHT: AI Recommendation & Override (4 Cols) */}
+          {/* RIGHT: AI Recommendation & Real-Time Override (4 Cols) */}
           <div className="lg:col-span-4 space-y-4">
             <div className="space-y-2">
-              <div className="text-xs font-black uppercase tracking-wider text-clinical-500 flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
-                <span>Decision Support Output</span>
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-black uppercase tracking-wider text-clinical-500 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                  <span>Current Assigned Level</span>
+                </div>
+                {isOverridden && (
+                  <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 px-2 py-0.5 rounded-full border border-amber-300">
+                    AI Suggested: L{t.model_acuity || t.acuity}
+                  </span>
+                )}
               </div>
               <AcuityBadge level={t.acuity} size="lg" />
             </div>
@@ -608,64 +762,117 @@ export default function TriageNurseView({
               </ul>
             </div>
 
-            {/* Clinician Override Form */}
-            <div className="card-surface p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-clinical-900 dark:text-white flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
-                  Clinician Confirmation & Override
+            {/* REAL-TIME CLINICIAN CONFIRMATION & OVERRIDE WORKBENCH */}
+            <div className="card-surface p-5 space-y-4 border-brand-300 dark:border-brand-500/40 shadow-sm">
+              <div className="flex items-center justify-between pb-2 border-b border-clinical-200 dark:border-clinical-800">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                  <span className="text-xs font-black text-clinical-900 dark:text-white uppercase tracking-wider">
+                    Clinician Confirmation & Override
+                  </span>
+                </div>
+                <span className="text-[10px] text-brand-700 dark:text-brand-400 font-mono font-bold bg-brand-50 dark:bg-brand-950 px-2 py-0.5 rounded-full border border-brand-200 dark:border-brand-500/30">
+                  Real-Time Active
                 </span>
-                <span className="text-[10px] text-clinical-400 font-mono font-bold">Encrypted Audit</span>
               </div>
 
               {overrideStatus && (
-                <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-500/40 text-emerald-800 dark:text-emerald-300 text-xs font-bold">
-                  {overrideStatus}
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-500/40 text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-start gap-2 animate-pulse">
+                  <Check className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                  <span>{overrideStatus}</span>
                 </div>
               )}
 
-              <form onSubmit={handleOverrideSubmit} className="space-y-2.5">
-                <div>
-                  <label className="text-[11px] font-bold text-clinical-600 dark:text-clinical-400">Assigned ESI Level</label>
-                  <select
-                    value={overrideAcuity}
-                    onChange={(e) => setOverrideAcuity(e.target.value)}
-                    className="w-full mt-1 bg-clinical-50 dark:bg-clinical-950 border border-clinical-200 dark:border-clinical-800 rounded-xl px-2.5 py-1.5 text-xs text-clinical-900 dark:text-white focus:border-brand-500 focus:outline-none font-bold"
-                  >
-                    <option value={1}>Level 1 — Resuscitation</option>
-                    <option value={2}>Level 2 — Emergent</option>
-                    <option value={3}>Level 3 — Urgent</option>
-                    <option value={4}>Level 4 — Less Urgent</option>
-                    <option value={5}>Level 5 — Non-Urgent</option>
-                  </select>
+              {/* 1-Click Interactive Level Selector */}
+              <div>
+                <label className="text-[11px] font-black text-clinical-600 dark:text-clinical-400 uppercase tracking-wider block mb-2">
+                  Select Assigned ESI Acuity (Updates Instantly):
+                </label>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {[1, 2, 3, 4, 5].map((lvl) => {
+                    const isCurrent = t.acuity === lvl;
+                    const cfg = ACUITY_CONFIG[lvl];
+                    return (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => triggerRealtimeOverride(lvl)}
+                        className={`py-2 px-1 rounded-xl text-center font-black transition-all flex flex-col items-center justify-center border ${
+                          isCurrent
+                            ? 'bg-brand-600 text-white border-brand-700 shadow-md ring-2 ring-brand-400 scale-105'
+                            : 'bg-clinical-50 dark:bg-clinical-950 text-clinical-700 dark:text-clinical-300 border-clinical-200 dark:border-clinical-800 hover:border-brand-400 hover:bg-clinical-100'
+                        }`}
+                      >
+                        <span className="text-sm font-mono">L{lvl}</span>
+                        <span className="text-[9px] font-semibold truncate w-full mt-0.5">
+                          {cfg.label.split(' ')[0]}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
+              </div>
 
+              {/* Quick Reason Chips */}
+              <div>
+                <span className="text-[10px] font-black text-clinical-500 uppercase tracking-wider block mb-1.5">
+                  1-Click Quick Justifications:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {quickReasons.map((chip, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleQuickReasonClick(chip)}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-clinical-100 dark:bg-clinical-900 text-clinical-700 dark:text-clinical-300 hover:bg-brand-100 dark:hover:bg-brand-950 hover:text-brand-700 border border-clinical-200 dark:border-clinical-800 transition-colors"
+                    >
+                      + {chip}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom Justification and Clinician ID */}
+              <div className="space-y-2 pt-1">
                 <div>
-                  <label className="text-[11px] font-bold text-clinical-600 dark:text-clinical-400">Clinical Justification for Override</label>
+                  <label className="text-[11px] font-bold text-clinical-600 dark:text-clinical-400">
+                    Clinical Justification (Press Enter or Commit):
+                  </label>
                   <input
                     type="text"
-                    placeholder="Mandatory reason for override..."
+                    placeholder="Enter clinical rationale..."
                     value={overrideReason}
                     onChange={(e) => setOverrideReason(e.target.value)}
-                    className="w-full mt-1 bg-clinical-50 dark:bg-clinical-950 border border-clinical-200 dark:border-clinical-800 rounded-xl px-2.5 py-1.5 text-xs text-clinical-900 dark:text-white focus:border-brand-500 focus:outline-none"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        triggerRealtimeOverride(overrideAcuity, overrideReason);
+                      }
+                    }}
+                    className="w-full mt-1 bg-clinical-50 dark:bg-clinical-950 border border-clinical-200 dark:border-clinical-800 rounded-xl px-3 py-2 text-xs text-clinical-900 dark:text-white focus:border-brand-500 focus:outline-none"
                   />
                 </div>
 
                 <div className="flex items-center gap-2 pt-1">
-                  <input
-                    type="text"
-                    value={clinicianId}
-                    onChange={(e) => setClinicianId(e.target.value)}
-                    className="w-24 bg-clinical-50 dark:bg-clinical-950 border border-clinical-200 dark:border-clinical-800 rounded-xl px-2 py-1.5 text-xs text-clinical-700 dark:text-slate-300 font-mono font-bold text-center"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={clinicianId}
+                      onChange={(e) => setClinicianId(e.target.value)}
+                      className="w-24 bg-clinical-50 dark:bg-clinical-950 border border-clinical-200 dark:border-clinical-800 rounded-xl px-2 py-2 text-xs text-clinical-700 dark:text-slate-300 font-mono font-bold text-center"
+                      title="Clinician ID"
+                    />
+                  </div>
                   <button
-                    type="submit"
-                    className="flex-1 py-1.5 px-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-black transition-colors shadow-xs"
+                    type="button"
+                    onClick={() => triggerRealtimeOverride(overrideAcuity, overrideReason)}
+                    className="flex-1 py-2 px-3 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-black transition-colors shadow-xs flex items-center justify-center gap-1.5"
                   >
-                    Commit Decision
+                    <Check className="w-4 h-4" />
+                    <span>Commit Override Now</span>
                   </button>
                 </div>
-              </form>
+              </div>
             </div>
           </div>
         </div>

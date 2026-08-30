@@ -71,6 +71,10 @@ class AuthRequest(BaseModel):
     role: str = "Clinical Lead"
     password: str
 
+# Real-time state caches for active session
+ACTIVE_OVERRIDES: Dict[str, Dict[str, Any]] = {}
+CUSTOM_PATIENT_DATA: Dict[str, Dict[str, Any]] = {}
+
 # ----------------- Helper Functions -----------------
 
 def _clean(v):
@@ -115,19 +119,40 @@ def get_patients(surge: bool = Query(False)):
     scored_patients = []
 
     for rec in records:
-        history = get_history(rec["patient_id"])
+        pid = rec["patient_id"]
+        # Merge any real-time vitals/complaint updates
+        if pid in CUSTOM_PATIENT_DATA:
+            rec.update(CUSTOM_PATIENT_DATA[pid])
+
+        history = get_history(pid)
         vitals_obj = rec_to_vitals(rec)
         age = float(rec["age"])
         res = score_patient(age, vitals_obj, rec["complaint"], history=history)
 
+        # Check for clinician override in real time
+        acuity = res.acuity
+        is_overridden = False
+        override_info = None
+        reasons = list(res.reasons)
+        if pid in ACTIVE_OVERRIDES:
+            ov = ACTIVE_OVERRIDES[pid]
+            acuity = ov["acuity"]
+            is_overridden = True
+            override_info = ov
+            reasons.insert(0, f"[CLINICIAN OVERRIDE] Adjusted from Level {ov['from_acuity']} to Level {ov['acuity']}: {ov['reason']} (by {ov['clinician']})")
+
         waited = int(rng.integers(0, 90))
-        limit = safe_wait_minutes(res.acuity, surge_factor)
-        breached = wait_breach(res.acuity, waited, surge_factor)
-        urgency = effective_urgency(res.acuity, waited, res.confidence_label)
+        limit = safe_wait_minutes(acuity, surge_factor)
+        breached = wait_breach(acuity, waited, surge_factor)
+        urgency = effective_urgency(acuity, waited, res.confidence_label)
         cat, phrase = _match_high_risk_complaint(rec["complaint"])
 
+        action = res.recommended_action
+        if is_overridden:
+            action = f"Level {acuity} care stream assigned via clinician override ({override_info['clinician']})."
+
         scored_patients.append({
-            "patient_id": rec["patient_id"],
+            "patient_id": pid,
             "name": rec["name"],
             "age": age,
             "age_band": age_band(age),
@@ -137,6 +162,8 @@ def get_patients(surge: bool = Query(False)):
             "high_risk_phrase": phrase,
             "has_history": str(rec.get("has_history")).lower() not in ("false", "0", ""),
             "history": history,
+            "is_overridden": is_overridden,
+            "override_info": override_info,
             "vitals": {
                 "hr": vitals_obj.hr,
                 "rr": vitals_obj.rr,
@@ -147,13 +174,14 @@ def get_patients(surge: bool = Query(False)):
                 "on_oxygen": vitals_obj.on_oxygen,
             },
             "triage": {
-                "acuity": res.acuity,
+                "acuity": acuity,
+                "model_acuity": res.acuity,
                 "ews_score": res.ews_score,
                 "confidence": res.confidence,
                 "confidence_label": res.confidence_label,
-                "reasons": res.reasons,
+                "reasons": reasons,
                 "red_flags": res.red_flags,
-                "recommended_action": res.recommended_action,
+                "recommended_action": action,
             },
             "flow": {
                 "waited_minutes": waited,
@@ -220,11 +248,36 @@ def score_custom_patient(req: ScorePatientRequest):
         }
     }
 
+class UpdatePatientRequest(BaseModel):
+    patient_id: str
+    complaint: Optional[str] = None
+    vitals: Optional[VitalsInput] = None
+
+@app.post("/api/patient/update")
+def update_patient_data(req: UpdatePatientRequest):
+    """Update patient vitals or complaint in real time."""
+    pid = req.patient_id
+    if pid not in CUSTOM_PATIENT_DATA:
+        CUSTOM_PATIENT_DATA[pid] = {}
+    
+    if req.complaint is not None:
+        CUSTOM_PATIENT_DATA[pid]["complaint"] = req.complaint
+    
+    if req.vitals is not None:
+        if req.vitals.hr is not None: CUSTOM_PATIENT_DATA[pid]["hr"] = req.vitals.hr
+        if req.vitals.rr is not None: CUSTOM_PATIENT_DATA[pid]["rr"] = req.vitals.rr
+        if req.vitals.spo2 is not None: CUSTOM_PATIENT_DATA[pid]["spo2"] = req.vitals.spo2
+        if req.vitals.sbp is not None: CUSTOM_PATIENT_DATA[pid]["sbp"] = req.vitals.sbp
+        if req.vitals.temp is not None: CUSTOM_PATIENT_DATA[pid]["temp"] = req.vitals.temp
+        if req.vitals.avpu is not None: CUSTOM_PATIENT_DATA[pid]["avpu"] = req.vitals.avpu
+        if req.vitals.on_oxygen is not None: CUSTOM_PATIENT_DATA[pid]["on_oxygen"] = req.vitals.on_oxygen
+
+    return {"success": True, "patient_id": pid}
+
 @app.post("/api/triage/override")
 def record_override(req: OverrideRequest):
-    """Record clinician override into the tamper-evident audit log."""
-    if not req.reason.strip():
-        raise HTTPException(status_code=400, detail="Clinical justification is required for override.")
+    """Record clinician override into memory and tamper-evident audit log."""
+    reason = req.reason.strip() if req.reason and req.reason.strip() else "Direct clinical assessment adjustment"
 
     entry_hash = audit.log_event(
         "OVERRIDE",
@@ -232,14 +285,24 @@ def record_override(req: OverrideRequest):
         {
             "from_acuity": req.from_acuity,
             "to_acuity": req.to_acuity,
-            "reason": req.reason.strip()
+            "reason": reason
         },
         actor=req.clinician
     )
+    
+    ACTIVE_OVERRIDES[req.patient_id] = {
+        "acuity": req.to_acuity,
+        "from_acuity": req.from_acuity,
+        "reason": reason,
+        "clinician": req.clinician,
+        "entry_hash": entry_hash[:12] + "..."
+    }
+
     return {
         "success": True,
         "entry_hash": entry_hash,
         "hash_chain_intact": audit.verify_chain(),
+        "new_acuity": req.to_acuity,
         "message": f"Override confirmed: Level {req.from_acuity} -> Level {req.to_acuity} by {req.clinician}"
     }
 

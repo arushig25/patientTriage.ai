@@ -51,19 +51,101 @@ export default function App() {
     fetchPatients(surgeActive);
   }, [surgeActive]);
 
+  // Real-time Override Handler with Optimistic UI updates
   const handleRecordOverride = async (overrideData) => {
+    const { patient_id, from_acuity, to_acuity, reason, clinician } = overrideData;
+    const safeReason = reason && reason.trim() ? reason.trim() : 'Direct clinician clinical override';
+
+    // 1. Optimistic UI update in real time
+    setData(prev => {
+      const updatedPatients = prev.patients.map(p => {
+        if (p.patient_id === patient_id) {
+          return {
+            ...p,
+            is_overridden: true,
+            override_info: {
+              acuity: to_acuity,
+              from_acuity,
+              reason: safeReason,
+              clinician
+            },
+            triage: {
+              ...p.triage,
+              acuity: to_acuity,
+              reasons: [
+                `[CLINICIAN OVERRIDE] Adjusted to Level ${to_acuity}: ${safeReason} (by ${clinician})`,
+                ...p.triage.reasons
+              ],
+              recommended_action: `Assigned Level ${to_acuity} care stream via clinician override (${clinician}).`
+            }
+          };
+        }
+        return p;
+      });
+      return { ...prev, patients: updatedPatients };
+    });
+
+    setSelectedPatient(prev => {
+      if (prev && prev.patient_id === patient_id) {
+        return {
+          ...prev,
+          is_overridden: true,
+          override_info: {
+            acuity: to_acuity,
+            from_acuity,
+            reason: safeReason,
+            clinician
+          },
+          triage: {
+            ...prev.triage,
+            acuity: to_acuity,
+            reasons: [
+              `[CLINICIAN OVERRIDE] Adjusted to Level ${to_acuity}: ${safeReason} (by ${clinician})`,
+              ...prev.triage.reasons
+            ],
+            recommended_action: `Assigned Level ${to_acuity} care stream via clinician override (${clinician}).`
+          }
+        };
+      }
+      return prev;
+    });
+
+    // 2. Synchronize to server and audit chain
     try {
       const res = await fetch('/api/triage/override', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(overrideData),
+        body: JSON.stringify({
+          patient_id,
+          from_acuity,
+          to_acuity,
+          reason: safeReason,
+          clinician: clinician || 'RN-1042'
+        }),
       });
       const json = await res.json();
-      fetchPatients(surgeActive);
       return json;
     } catch (err) {
       console.error('Failed to record override:', err);
       return { success: false };
+    }
+  };
+
+  // Real-time Patient Data Update Handler (Vitals & Complaints)
+  const handleUpdatePatient = async (patientId, updatePayload) => {
+    try {
+      await fetch('/api/patient/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patient_id: patientId,
+          ...updatePayload
+        }),
+      });
+      // Re-fetch to get new calculated scores and queue ranks in real time
+      await fetchPatients(surgeActive);
+    } catch (err) {
+      console.error('Failed to update patient:', err);
     }
   };
 
@@ -105,6 +187,7 @@ export default function App() {
                 selectedPatient={selectedPatient}
                 onSelectPatient={setSelectedPatient}
                 onRecordOverride={handleRecordOverride}
+                onUpdatePatient={handleUpdatePatient}
               />
             )}
 
