@@ -23,17 +23,18 @@ def render(scored, surge_factor, surge_active, role_display):
             audit.log_event("ALERT", rec["patient_id"],
                                  {"type": "wait_breach", "acuity": res.acuity, "waited": waited,
                                   "safe_limit": limit, "surge_factor": surge_factor})
+    
     board.sort(key=lambda b: b["urgency"])
     n_breach = sum(1 for b in board if b["breach"])
 
     st.markdown(
         f"""
         <div class="stat-row">
-          <div class="stat-card neutral"><div class="n">{n_total}</div><div class="l">Patients waiting</div></div>
-          <div class="stat-card l1"><div class="n">{n_l1}</div><div class="l">Immediate</div></div>
-          <div class="stat-card l2"><div class="n">{n_l2}</div><div class="l">Urgent</div></div>
-          <div class="stat-card l1"><div class="n">{n_breach}</div><div class="l">Reassess now</div></div>
-          <div class="stat-card neutral"><div class="n">{surge_factor}&times;</div><div class="l">Current load</div></div>
+          <div class="stat-card neutral"><div class="n">{n_total}</div><div class="l">Waiting Room Queue</div></div>
+          <div class="stat-card l1"><div class="n">{n_l1}</div><div class="l">Immediate (L1)</div></div>
+          <div class="stat-card l2"><div class="n">{n_l2}</div><div class="l">Emergent (L2)</div></div>
+          <div class="stat-card l1"><div class="n">{n_breach}</div><div class="l">Safe-Wait Breaches</div></div>
+          <div class="stat-card neutral"><div class="n">{surge_factor}×</div><div class="l">Current Volume Surge</div></div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -43,32 +44,55 @@ def render(scored, surge_factor, surge_active, role_display):
         base60 = safe_wait_minutes(4, 1.0)
         cur60 = safe_wait_minutes(4, surge_factor)
         st.markdown(
-            alert_box("crit", f"🔴 SURGE MODE ACTIVE &mdash; {surge_factor}&times; normal capacity", 
-                      f"Safe waiting thresholds have tightened and the board below is re-ranked live. Example: a Level 4 patient's safe wait is now {cur60} min, down from {base60} min under normal load."),
+            alert_box("crit", f"🔴 SURGE PROTOCOL ACTIVE — {surge_factor}× Normal Department Load", 
+                      f"Safe waiting thresholds have tightened across non-critical tiers. Waiting-room board below is dynamically re-ranked. (Example: Level 4 threshold shortened from {base60} min to {cur60} min)."),
             unsafe_allow_html=True,
         )
     else:
         st.markdown(
-            alert_box("ok", "✓ Normal operating load", "Standard safe-wait targets are in effect."),
+            alert_box("ok", "✓ Normal Operational Flow", "Safe-wait thresholds are calibrated at standard baselines."),
             unsafe_allow_html=True,
         )
 
-    st.markdown(section_label('Waiting-room board &mdash; highest priority first'), unsafe_allow_html=True)
-    for b in board:
+    st.markdown(section_label('📋 Live Waiting-Room Priority Queue (Highest Clinical Risk First)'), unsafe_allow_html=True)
+    
+    # Filter controls
+    f_col1, f_col2 = st.columns([2, 1])
+    with f_col1:
+        search_query = st.text_input("🔍 Quick Search Patient or Complaint", placeholder="Search by name, ID, or symptom...", label_visibility="collapsed")
+    with f_col2:
+        filter_status = st.selectbox("Queue Filter", ["All Patients", "Breaches Only (Reassess Now)", "Level 1 & 2 Only"], label_visibility="collapsed")
+
+    filtered_board = board
+    if filter_status == "Breaches Only (Reassess Now)":
+        filtered_board = [b for b in filtered_board if b["breach"]]
+    elif filter_status == "Level 1 & 2 Only":
+        filtered_board = [b for b in filtered_board if b["res"].acuity in (1, 2)]
+
+    if search_query.strip():
+        q = search_query.lower()
+        filtered_board = [b for b in filtered_board if q in b["rec"]["name"].lower() or q in b["rec"]["patient_id"].lower() or q in b["rec"]["complaint"].lower()]
+
+    if not filtered_board:
+        st.info("No patients match current filter criteria.")
+
+    for b in filtered_board:
         rec, res = b["rec"], b["res"]
         m = ACUITY_META[res.acuity]
         status = (f'<span class="chip chip-l1">🚨 REASSESS NOW</span>' if b["breach"]
-                  else f'<span style="font-size:.78rem;color:var(--muted);">within safe wait</span>')
+                  else f'<span class="chip chip-l4">✓ WITHIN TARGET</span>')
         why = ""
         if res.confidence_label == "Low" and not b["breach"]:
-            why = '<div style="font-size:.75rem;color:var(--l1);margin-top:2px;">⚠ Low-confidence assessment &mdash; moved up in priority</div>'
+            why = '<div style="font-size:0.78rem;color:var(--l1);margin-top:2px;font-weight:600;">⚠️ Low-confidence triage — surfaced earlier in priority queue</div>'
         st.markdown(
             f"""<div class="pcard" style="--COL:{HEX[m['c']]}">
                   <div class="pid">{rec['patient_id']}</div>
-                  <div class="who"><div class="nm">{rec['name']} <span style="font-weight:400;color:var(--muted);">&middot; {int(float(rec['age']))}y</span></div>
-                    <div class="cc">{rec['complaint'].capitalize()}</div></div>
-                  <div class="lvl">L{res.acuity} &middot; {m['label']}</div>
-                  <div class="wait">Waited <b>{b['waited']}</b> min &middot; safe limit <b>{b['limit']}</b> min{why}</div>
+                  <div class="who">
+                    <div class="nm">{rec['name']} <span style="font-weight:400;color:var(--muted);font-size:0.85rem;">· {int(float(rec['age']))}y</span></div>
+                    <div class="cc">{rec['complaint'].capitalize()}</div>
+                  </div>
+                  <div class="lvl">L{res.acuity} · {m['label']}</div>
+                  <div class="wait">Elapsed: <b>{b['waited']}</b> min · Limit: <b>{b['limit']}</b> min{why}</div>
                   <div class="flagbadge">{status}</div>
                 </div>""",
             unsafe_allow_html=True,

@@ -16,7 +16,7 @@ BD = {"l1": "#FECACA", "l2": "#FED7AA", "l3": "#FDE68A", "l4": "#A7F3D0", "l5": 
 
 def chip(level):
     m = ACUITY_META[level]
-    return f'<span class="chip chip-{m["c"]}">LEVEL {level} &middot; {m["label"].upper()}</span>'
+    return f'<span class="chip chip-{m["c"]}">LEVEL {level} · {m["label"].upper()}</span>'
 
 def section_label(text):
     return f'<div class="sec-label">{text}</div>'
@@ -26,7 +26,7 @@ def stat_card_html(value, label, color_class):
 
 def vital_cell(label, val, unit, warn=False, crit=False, flagtext=None):
     cls = "crit" if crit else ("warn" if warn else "")
-    fv = "&mdash;" if val is None else (f"{val:g}" if isinstance(val, float) else val)
+    fv = "—" if val is None else (f"{val:g}" if isinstance(val, float) else val)
     flag_html = f'<div class="flag">{flagtext}</div>' if (warn or crit) and flagtext else ""
     return f'<div class="vitem {cls}"><div class="lab">{label}</div><div class="val">{fv} {unit if val is not None else ""}</div>{flag_html}</div>'
 

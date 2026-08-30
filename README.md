@@ -104,9 +104,23 @@ pip install -r requirements.txt
 ```
 
 ### 4. Launch the application
+
+You can launch the app using any of the following options:
+
 ```bash
-streamlit run app.py
+# Option A (Recommended): Direct Python execution (auto-bootstraps Streamlit)
+python app.py
+
+# Option B: One-click Windows runner
+.\run.bat
+# or in PowerShell:
+.\run.ps1
+
+# Option C: Standard Streamlit module execution
+python -m streamlit run app.py
 ```
+
+> **Note for Windows users:** If you encounter `An Application Control policy has blocked this file` when running `streamlit.exe`, use `python app.py` or `python -m streamlit run app.py` instead.
 
 The application will open in your browser at `http://localhost:8501`. On first launch, encrypted simulated patient data is automatically generated in `data/`.
 
