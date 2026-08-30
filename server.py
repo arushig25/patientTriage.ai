@@ -292,6 +292,18 @@ if frontend_dist.exists():
             return FileResponse(file_path)
         return FileResponse(frontend_dist / "index.html")
 
+def get_local_ip() -> str:
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = "127.0.0.1"
+    finally:
+        s.close()
+    return ip
+
 if __name__ == "__main__":
     import uvicorn
     if hasattr(sys.stdout, "reconfigure"):
@@ -299,8 +311,10 @@ if __name__ == "__main__":
             sys.stdout.reconfigure(encoding="utf-8")
         except Exception:
             pass
+    ip = get_local_ip()
     print("=" * 70)
     print("PatientTriage.ai - Hospital Emergency Command Center")
-    print("Server running at: http://localhost:8000")
+    print(f"  > Local URL:   http://localhost:8000")
+    print(f"  > Network URL: http://{ip}:8000")
     print("=" * 70)
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
