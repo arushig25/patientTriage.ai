@@ -2,7 +2,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from patient_triage.security import audit, privacy
-from patient_triage.ui.components import (ACUITY_META, HEX, section_label, alert_box)
+from patient_triage.ui.components import (ACUITY_META, HEX, section_label, alert_box, render_html)
 
 def render(scored, surge_factor, surge_active, role_display):
     log_all = audit.read_log()
@@ -14,7 +14,7 @@ def render(scored, surge_factor, surge_active, role_display):
     n_l1 = sum(1 for _, r in scored if r.acuity == 1)
     n_l2 = sum(1 for _, r in scored if r.acuity == 2)
 
-    st.markdown(
+    render_html(
         f"""
         <div class="stat-row">
           <div class="stat-card neutral"><div class="n">{n_total}</div><div class="l">Total Assessed</div></div>
@@ -23,8 +23,7 @@ def render(scored, surge_factor, surge_active, role_display):
           <div class="stat-card neutral"><div class="n">{n_alerts}</div><div class="l">Reassess Alerts</div></div>
           <div class="stat-card neutral"><div class="n">{n_overrides}</div><div class="l">Clinician Overrides</div></div>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     c1, c2 = st.columns([1.3, 1], gap="large")
@@ -69,10 +68,8 @@ def render(scored, surge_factor, surge_active, role_display):
             "Pseudonymized patient identifiers",
             "Personal baseline-aware scoring",
         ]
-        html = "<div class='checklist'>" + "".join(
-            f'<div class="checkitem"><span class="tick">✓</span>{c}</div>' for c in checks
-        ) + "</div>"
-        st.markdown(html, unsafe_allow_html=True)
+        items_html = "".join(f'<div class="checkitem"><span class="tick">✓</span>{c}</div>' for c in checks)
+        render_html(f"<div class='checklist'>{items_html}</div>")
 
     st.markdown(f"<div style='margin-top:14px;'>{section_label('🔐 Tamper-Evident Audit Log (HIPAA-Style Accountability)')}</div>", unsafe_allow_html=True)
     st.caption("Patient identifiers are cryptographically pseudonymized (HMAC-SHA256). "
@@ -100,12 +97,10 @@ def render(scored, surge_factor, surge_active, role_display):
         if authorized:
             df["Patient Identifier"] = df["Patient Identifier"].apply(
                 lambda t: audit.resolve_identity(t, "Clinical Lead", pw))
-            st.markdown(alert_box("ok", "🔓 Authorized Access Active", "Pseudonymous tokens have been re-linked to real Patient MRNs for review."),
-                        unsafe_allow_html=True)
+            render_html(alert_box("ok", "🔓 Authorized Access Active", "Pseudonymous tokens have been re-linked to real Patient MRNs for review."))
         else:
-            st.markdown(
-                alert_box("info", "🔒 Protected Privacy Mode", "Displaying pseudonymized HMAC tokens. Sensitive MRNs are masked."),
-                unsafe_allow_html=True,
+            render_html(
+                alert_box("info", "🔒 Protected Privacy Mode", "Displaying pseudonymized HMAC tokens. Sensitive MRNs are masked.")
             )
         st.dataframe(df, use_container_width=True, hide_index=True)
         st.caption(f"SHA-256 Hash Chain Integrity: **{'✓ INTACT' if audit.verify_chain() else '❌ COMPROMISED'}**")

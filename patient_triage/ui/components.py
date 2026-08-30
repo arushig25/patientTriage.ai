@@ -1,5 +1,7 @@
 # patient_triage/ui/components.py
 
+import streamlit as st
+
 ACUITY_META = {
     1: {"label": "Resuscitation", "desc": "Immediate life-threatening emergency", "c": "l1"},
     2: {"label": "Emergent",      "desc": "Immediate physician assessment",       "c": "l2"},
@@ -13,6 +15,11 @@ CONF_COLOR = {"High": "l4", "Moderate": "l3", "Low": "l1"}
 HEX = {"l1": "#DC2626", "l2": "#EA580C", "l3": "#D97706", "l4": "#059669", "l5": "#2563EB"}
 BG = {"l1": "#FEF2F2", "l2": "#FFF7ED", "l3": "#FFFBEB", "l4": "#ECFDF5", "l5": "#EFF6FF"}
 BD = {"l1": "#FECACA", "l2": "#FED7AA", "l3": "#FDE68A", "l4": "#A7F3D0", "l5": "#BFDBFE"}
+
+def render_html(html_str: str) -> None:
+    """Render HTML safely into Streamlit without markdown interpreting indentation as code blocks."""
+    cleaned = "\n".join(line.strip() for line in html_str.strip().splitlines())
+    st.markdown(cleaned, unsafe_allow_html=True)
 
 def chip(level):
     m = ACUITY_META[level]

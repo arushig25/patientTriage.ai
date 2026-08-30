@@ -2,7 +2,7 @@
 
 HOSPITAL_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
 
 :root {
   --bg: #F8FAFC;
@@ -11,13 +11,11 @@ HOSPITAL_CSS = """
   --border: #E2E8F0;
   --border-strong: #CBD5E1;
   --text: #0F172A;
-  --text-secondary: #334155;
   --muted: #64748B;
   --brand: #0D9488;
   --brand-dark: #0F766E;
-  --brand-light: #CCFBF1;
   
-  /* Clinical Acuity Scale (ESI-aligned) */
+  /* Clinical Acuity Colors (ESI-aligned) */
   --l1: #DC2626; --l1-bg: #FEF2F2; --l1-bd: #FECACA; --l1-dark: #991B1B;
   --l2: #EA580C; --l2-bg: #FFF7ED; --l2-bd: #FED7AA; --l2-dark: #9A3412;
   --l3: #D97706; --l3-bg: #FFFBEB; --l3-bd: #FDE68A; --l3-dark: #92400E;
@@ -26,9 +24,8 @@ HOSPITAL_CSS = """
 }
 
 html, body, [class*="css"] { 
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
     color: var(--text);
-    -webkit-font-smoothing: antialiased;
 }
 
 .stApp { 
@@ -39,7 +36,7 @@ html, body, [class*="css"] {
     font-family: 'JetBrains Mono', monospace; 
 }
 
-/* Hide deploy & footer chrome, keep sidebar toggle accessible */
+/* Chrome Cleanup */
 #MainMenu, footer { 
     visibility: hidden; 
     height: 0; 
@@ -53,8 +50,8 @@ div[data-testid="stToolbar"] {
 
 .block-container { 
     padding-top: 1rem; 
-    padding-bottom: 2.5rem;
-    max-width: 1280px; 
+    padding-bottom: 2rem;
+    max-width: 1260px; 
 }
 
 /* ---- Hospital Header Bar ---- */
@@ -62,28 +59,25 @@ div[data-testid="stToolbar"] {
   display: flex; 
   justify-content: space-between; 
   align-items: center;
-  background: linear-gradient(135deg, #0F172A 0%, #1E293B 60%, #0F2D37 100%); 
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 70%, #0F2D37 100%); 
   color: #FFFFFF; 
-  border-radius: 16px;
-  padding: 20px 28px; 
-  margin-bottom: 24px;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15), 0 1px 3px rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  padding: 18px 24px; 
+  margin-bottom: 20px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .pt-header .brand { 
     font-weight: 800; 
-    font-size: 1.4rem; 
+    font-size: 1.35rem; 
     letter-spacing: -0.02em; 
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    color: #FFFFFF;
 }
 .pt-header .dept { 
-    font-size: 0.85rem; 
+    font-size: 0.82rem; 
     color: #94A3B8; 
     font-weight: 500; 
     margin-top: 3px; 
-    letter-spacing: 0.01em;
 }
 .pt-header-right { 
     display: flex; 
@@ -94,13 +88,14 @@ div[data-testid="stToolbar"] {
     display: flex; 
     align-items: center; 
     gap: 8px; 
-    font-size: 0.82rem; 
+    font-size: 0.8rem; 
     font-weight: 600; 
     color: #A7F3D0; 
-    background: rgba(16, 185, 129, 0.12);
-    border: 1px solid rgba(16, 185, 129, 0.25);
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.3);
     padding: 6px 14px;
     border-radius: 20px;
+    white-space: nowrap;
 }
 
 @keyframes pulse {
@@ -116,13 +111,14 @@ div[data-testid="stToolbar"] {
     animation: pulse 2s infinite; 
 }
 .pt-pill { 
-    background: rgba(255, 255, 255, 0.1); 
-    border: 1px solid rgba(255, 255, 255, 0.18); 
+    background: rgba(255, 255, 255, 0.12); 
+    border: 1px solid rgba(255, 255, 255, 0.2); 
     padding: 6px 14px; 
     border-radius: 20px; 
-    font-size: 0.82rem; 
+    font-size: 0.8rem; 
     font-weight: 600; 
     color: #FFFFFF;
+    white-space: nowrap;
 }
 .pt-pill-surge { 
     background: rgba(220, 38, 38, 0.9); 
@@ -134,37 +130,32 @@ div[data-testid="stToolbar"] {
 /* ---- Stat Strip ---- */
 .stat-row { 
     display: grid; 
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); 
-    gap: 14px; 
-    margin-bottom: 24px; 
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); 
+    gap: 12px; 
+    margin-bottom: 20px; 
 }
 .stat-card { 
     background: var(--surface); 
-    border-radius: 14px; 
-    padding: 16px 20px; 
+    border-radius: 12px; 
+    padding: 14px 18px; 
     border: 1px solid var(--border);
     border-top: 4px solid var(--border-strong);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.stat-card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.07);
 }
 .stat-card .n { 
     font-family: 'JetBrains Mono', monospace; 
-    font-size: 2rem; 
+    font-size: 1.9rem; 
     font-weight: 700; 
     line-height: 1.1; 
     color: var(--text);
 }
 .stat-card .l { 
-    font-size: 0.76rem; 
+    font-size: 0.74rem; 
     color: var(--muted); 
     font-weight: 600; 
     text-transform: uppercase; 
     letter-spacing: 0.05em; 
-    margin-top: 6px; 
+    margin-top: 5px; 
 }
 .stat-card.l1 { border-top-color: var(--l1); } .stat-card.l1 .n { color: var(--l1); } 
 .stat-card.l2 { border-top-color: var(--l2); } .stat-card.l2 .n { color: var(--l2); }
@@ -173,61 +164,58 @@ div[data-testid="stToolbar"] {
 
 /* ---- Section Label ---- */
 .sec-label { 
-    font-size: 0.8rem; 
+    font-size: 0.78rem; 
     font-weight: 700; 
     text-transform: uppercase; 
     letter-spacing: 0.06em; 
     color: var(--muted); 
-    margin: 4px 0 10px 0; 
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    margin: 4px 0 8px 0; 
 }
 
-/* ---- Acuity Banner (Triage Outcome) ---- */
+/* ---- Acuity Banner ---- */
 .acuity-banner { 
     display: flex; 
-    gap: 22px; 
+    gap: 20px; 
     align-items: center; 
-    border-radius: 16px; 
-    padding: 22px 26px; 
+    border-radius: 14px; 
+    padding: 20px 24px; 
     border: 1px solid var(--BD); 
     border-left: 8px solid var(--COL); 
     background: var(--BGC); 
-    margin-bottom: 16px; 
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    margin-bottom: 14px; 
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 .acuity-banner .lvl { 
     font-family: 'JetBrains Mono', monospace; 
     font-weight: 800; 
-    font-size: 3rem; 
+    font-size: 2.8rem; 
     color: var(--COL); 
     line-height: 1; 
-    min-width: 75px;
+    min-width: 65px;
 }
 .acuity-banner .rt { 
     flex: 1; 
 }
 .acuity-banner .lbl { 
     font-weight: 800; 
-    font-size: 1.1rem; 
+    font-size: 1.05rem; 
     letter-spacing: 0.02em; 
     color: var(--COL); 
     text-transform: uppercase; 
 }
 .acuity-banner .act { 
-    font-size: 1.05rem; 
+    font-size: 1rem; 
     font-weight: 600; 
     color: var(--text); 
-    margin-top: 5px; 
+    margin-top: 4px; 
 }
 
-/* ---- Clinical Chips / Badges ---- */
+/* ---- Chips ---- */
 .chip { 
     display: inline-block; 
     padding: 4px 12px; 
     border-radius: 20px; 
-    font-size: 0.75rem; 
+    font-size: 0.74rem; 
     font-weight: 700; 
     letter-spacing: 0.03em; 
 }
@@ -241,15 +229,15 @@ div[data-testid="stToolbar"] {
 .card { 
     background: var(--surface); 
     border: 1px solid var(--border);
-    border-radius: 14px; 
-    padding: 18px 22px; 
-    margin-bottom: 16px; 
+    border-radius: 12px; 
+    padding: 16px 20px; 
+    margin-bottom: 14px; 
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 .card-title { 
     font-weight: 700; 
-    font-size: 0.98rem; 
-    margin-bottom: 12px; 
+    font-size: 0.95rem; 
+    margin-bottom: 10px; 
     color: var(--text);
 }
 
@@ -261,33 +249,33 @@ div[data-testid="stToolbar"] {
     background: var(--surface); 
     border: 1px solid var(--border);
     border-radius: 12px; 
-    padding: 14px 18px; 
+    padding: 12px 18px; 
     margin-bottom: 10px; 
     border-left: 6px solid var(--COL);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .pcard:hover { 
-    transform: translateY(-2px); 
+    transform: translateY(-1px); 
     box-shadow: 0 4px 8px -1px rgba(0, 0, 0, 0.08); 
 }
 .pcard .pid { 
     font-family: 'JetBrains Mono', monospace; 
-    font-size: 0.82rem; 
+    font-size: 0.8rem; 
     color: var(--muted); 
     font-weight: 600; 
-    min-width: 48px; 
+    min-width: 45px; 
 }
 .pcard .who { 
     min-width: 190px; 
 }
 .pcard .who .nm { 
     font-weight: 700; 
-    font-size: 0.98rem; 
+    font-size: 0.95rem; 
     color: var(--text);
 }
 .pcard .who .cc { 
-    font-size: 0.84rem; 
+    font-size: 0.82rem; 
     color: var(--muted); 
     margin-top: 2px; 
 }
@@ -295,11 +283,11 @@ div[data-testid="stToolbar"] {
     font-family: 'JetBrains Mono', monospace; 
     font-weight: 700; 
     color: var(--COL); 
-    font-size: 0.88rem; 
-    min-width: 110px; 
+    font-size: 0.86rem; 
+    min-width: 105px; 
 }
 .pcard .wait { 
-    font-size: 0.85rem; 
+    font-size: 0.83rem; 
     color: var(--text); 
     min-width: 120px; 
 }
@@ -323,7 +311,7 @@ div[data-testid="stToolbar"] {
     padding: 10px 12px; 
 }
 .vitem .lab { 
-    font-size: 0.72rem; 
+    font-size: 0.7rem; 
     color: var(--muted); 
     font-weight: 600; 
     text-transform: uppercase; 
@@ -332,8 +320,8 @@ div[data-testid="stToolbar"] {
 .vitem .val { 
     font-family: 'JetBrains Mono', monospace; 
     font-weight: 700; 
-    font-size: 1.18rem; 
-    margin-top: 3px; 
+    font-size: 1.15rem; 
+    margin-top: 2px; 
     color: var(--text);
 }
 .vitem.warn { border-color: var(--l2-bd); background: var(--l2-bg); }
@@ -341,9 +329,9 @@ div[data-testid="stToolbar"] {
 .vitem.crit { border-color: var(--l1-bd); background: var(--l1-bg); }
 .vitem.crit .val { color: var(--l1-dark); }
 .vitem .flag { 
-    font-size: 0.72rem; 
+    font-size: 0.7rem; 
     font-weight: 700; 
-    margin-top: 3px; 
+    margin-top: 2px; 
 }
 .vitem.warn .flag { color: var(--l2-dark); } 
 .vitem.crit .flag { color: var(--l1-dark); }
@@ -355,9 +343,9 @@ div[data-testid="stToolbar"] {
     padding: 0; 
 }
 .reasons li { 
-    padding: 8px 0 8px 18px; 
+    padding: 7px 0 7px 16px; 
     border-bottom: 1px solid var(--border); 
-    font-size: 0.92rem; 
+    font-size: 0.9rem; 
     position: relative; 
     color: var(--text);
 }
@@ -387,12 +375,12 @@ div[data-testid="stToolbar"] {
     border-radius: 6px; 
 }
 
-/* ---- Alert & Callout Boxes ---- */
+/* ---- Alert Boxes ---- */
 .abox { 
-    border-radius: 12px; 
-    padding: 12px 16px; 
+    border-radius: 10px; 
+    padding: 12px 15px; 
     font-size: 0.88rem; 
-    margin-bottom: 12px; 
+    margin-bottom: 10px; 
     border: 1px solid;
     border-left: 5px solid; 
 }
@@ -406,28 +394,28 @@ div[data-testid="stToolbar"] {
 .checklist { 
     display: grid; 
     grid-template-columns: repeat(2, 1fr); 
-    gap: 10px; 
+    gap: 8px; 
 }
 .checkitem { 
     display: flex; 
-    gap: 10px; 
+    gap: 8px; 
     align-items: center; 
-    font-size: 0.9rem; 
+    font-size: 0.88rem; 
     background: var(--surface-alt); 
     border: 1px solid var(--border);
-    border-radius: 10px; 
-    padding: 10px 12px; 
+    border-radius: 8px; 
+    padding: 9px 12px; 
     color: var(--text);
 }
 .checkitem .tick { 
     color: var(--brand); 
     font-weight: 800; 
-    font-size: 1.05rem;
+    font-size: 1rem;
 }
 
 /* ---- Streamlit Widget Touch-ups ---- */
 div[data-testid="stButton"] button { 
-    border-radius: 10px; 
+    border-radius: 8px; 
     font-weight: 600; 
     border: 1px solid var(--border-strong);
     background: var(--surface);
@@ -439,7 +427,7 @@ div[data-testid="stButton"] button:hover {
     color: var(--brand);
 }
 div[data-testid="stFormSubmitButton"] button { 
-    border-radius: 10px; 
+    border-radius: 8px; 
     font-weight: 700; 
     background: var(--brand); 
     color: #FFFFFF !important; 
@@ -451,21 +439,14 @@ div[data-testid="stFormSubmitButton"] button {
 div[data-testid="stFormSubmitButton"] button:hover { 
     background: var(--brand-dark); 
     color: #FFFFFF !important; 
-    box-shadow: 0 4px 6px rgba(13, 148, 136, 0.3);
 }
 section[data-testid="stSidebar"] { 
     background: #FFFFFF; 
     border-right: 1px solid var(--border); 
 }
-div[data-testid="stMetric"] { 
-    background: var(--surface); 
-    border: 1px solid var(--border); 
-    border-radius: 12px; 
-    padding: 12px 16px; 
-}
 hr { 
     border-color: var(--border); 
-    margin: 1.2rem 0;
+    margin: 1rem 0;
 }
 </style>
 """

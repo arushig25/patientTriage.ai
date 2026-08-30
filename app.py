@@ -19,6 +19,7 @@ except (ImportError, AttributeError):
 import streamlit as st
 
 from patient_triage.ui.styles import HOSPITAL_CSS
+from patient_triage.ui.components import render_html
 from patient_triage.data.simulator import write_csv, surge_patients, base_patients, COLS, get_history
 from patient_triage.core.engine import Vitals, score_patient, compute_surge_factor, NORMAL_CAPACITY, SURGE_BANNER_THRESHOLD
 from patient_triage.ui.views import triage_nurse, charge_nurse, clinical_lead
@@ -43,20 +44,19 @@ def load_records(surge=False):
 
 # ---- Sidebar Navigation & Controls ----
 with st.sidebar:
-    st.markdown(
+    render_html(
         """
-        <div style='display:flex;align-items:center;gap:10px;margin-bottom:4px;'>
-          <span style='font-size:1.6rem;'>🏥</span>
+        <div style='display:flex;align-items:center;gap:10px;margin-bottom:6px;'>
+          <span style='font-size:1.8rem;'>🏥</span>
           <div>
             <div style='font-weight:800;font-size:1.25rem;color:var(--text);line-height:1.1;'>PatientTriage.ai</div>
-            <div style='font-size:0.75rem;color:var(--muted);font-weight:600;letter-spacing:0.02em;'>CLINICAL DECISION SUPPORT</div>
+            <div style='font-size:0.72rem;color:var(--muted);font-weight:700;letter-spacing:0.04em;'>CLINICAL DECISION SUPPORT</div>
           </div>
         </div>
-        <div style='font-size:0.8rem;color:var(--muted);margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border);'>
+        <div style='font-size:0.8rem;color:var(--muted);margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);'>
           Level 1 Trauma Center &middot; ED Pavilion
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
     
     st.markdown("<div class='sec-label'>Role-Based Workspace</div>", unsafe_allow_html=True)
@@ -111,7 +111,7 @@ for rec in records:
 # ---- Top Header Bar ----
 surge_pill = (f'<div class="pt-pill pt-pill-surge">🔴 SURGE ACTIVE &middot; {surge_factor}× CAPACITY</div>'
               if surge_active else "")
-st.markdown(
+render_html(
     f"""
     <div class="pt-header">
       <div>
@@ -124,8 +124,7 @@ st.markdown(
         <div class="pt-pill">{role_display}</div>
       </div>
     </div>
-    """,
-    unsafe_allow_html=True,
+    """
 )
 
 # ---- Route View by Role ----

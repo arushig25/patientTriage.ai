@@ -6,7 +6,7 @@ from patient_triage.core.engine import (
 from patient_triage.data.simulator import get_history
 from patient_triage.security import audit, privacy
 from patient_triage.ui.components import (
-    ACUITY_META, CONF_COLOR, HEX, BG, BD, chip, section_label, vital_cell, alert_box
+    ACUITY_META, CONF_COLOR, HEX, BG, BD, chip, section_label, vital_cell, alert_box, render_html
 )
 
 def _clean(v):
@@ -31,7 +31,7 @@ def render(scored, surge_factor, surge_active, role_display):
     n_l3 = sum(1 for _, r in scored if r.acuity == 3)
 
     # Top Clinical Stats Row
-    st.markdown(
+    render_html(
         f"""
         <div class="stat-row">
           <div class="stat-card neutral"><div class="n">{n_total}</div><div class="l">Active Patients</div></div>
@@ -39,8 +39,7 @@ def render(scored, surge_factor, surge_active, role_display):
           <div class="stat-card l2"><div class="n">{n_l2}</div><div class="l">Emergent (Level 2)</div></div>
           <div class="stat-card l3"><div class="n">{n_l3}</div><div class="l">Urgent (Level 3)</div></div>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     tab_active, tab_calc = st.tabs(["📋 Arriving Patient Intake", "⚡ Quick Triage Calculator"])
@@ -63,40 +62,39 @@ def render(scored, surge_factor, surge_active, role_display):
 
         with left:
             st.markdown(section_label('👤 Patient Demographics & Intake'), unsafe_allow_html=True)
-            st.markdown(
-                f"""<div class="card">
-                      <div style="display:flex;justify-content:space-between;align-items:baseline;">
-                        <div>
-                          <div style="font-weight:800;font-size:1.2rem;color:var(--text);">{rec['name']}</div>
-                          <div style="color:var(--muted);font-size:0.88rem;margin-top:2px;">
-                            Age: <b>{int(age)}</b> years · MRN: <span class="mono">{rec['patient_id']}</span> · Band: <b>{band.replace('_', ' ').title()}</b>
-                          </div>
-                        </div>
+            render_html(
+                f"""
+                <div class="card">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                    <div>
+                      <div style="font-weight:800;font-size:1.2rem;color:var(--text);">{rec['name']}</div>
+                      <div style="color:var(--muted);font-size:0.88rem;margin-top:2px;">
+                        Age: <b>{int(age)}</b> years &middot; MRN: <span class="mono">{rec['patient_id']}</span> &middot; Band: <b>{band.replace('_', ' ').title()}</b>
                       </div>
-                      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:0.92rem;">
-                        <span style="color:var(--muted);font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Chief Complaint</span>
-                        <div style="font-weight:600;color:var(--text);font-size:1.05rem;margin-top:2px;">{rec['complaint'].capitalize()}</div>
-                      </div>
-                    </div>""",
-                unsafe_allow_html=True,
+                    </div>
+                  </div>
+                  <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);font-size:0.92rem;">
+                    <span style="color:var(--muted);font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">Chief Complaint</span>
+                    <div style="font-weight:600;color:var(--text);font-size:1.05rem;margin-top:2px;">{rec['complaint'].capitalize()}</div>
+                  </div>
+                </div>
+                """
             )
 
             cat, phrase = _match_high_risk_complaint(rec["complaint"])
             if cat:
-                st.markdown(
+                render_html(
                     alert_box("warn", f"⚠️ Recognized High-Risk Category: {cat.replace('_',' ').title()}", 
-                              f'Matched pattern: "<b>{phrase}</b>" — safety override elevates minimum priority to Emergent (Level 2).'),
-                    unsafe_allow_html=True,
+                              f'Matched pattern: "<b>{phrase}</b>" — safety override elevates minimum priority to Emergent (Level 2).')
                 )
 
             if band in PEDS_NORMAL:
-                st.markdown(
+                render_html(
                     alert_box("info", "🧒 Pediatric Assessment Mode", 
-                              f"Patient is {int(age)} years old ({band.replace('_', ' ')}). Vitals evaluated against Fleming/Lancet pediatric vital percentiles."),
-                    unsafe_allow_html=True,
+                              f"Patient is {int(age)} years old ({band.replace('_', ' ')}). Vitals evaluated against Fleming/Lancet pediatric vital percentiles.")
                 )
 
-            st.markdown(f"<div style='margin-top:6px;'>{section_label('🩺 Measured Vital Signs')}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='margin-top:8px;'>{section_label('🩺 Measured Vital Signs')}</div>", unsafe_allow_html=True)
 
             hr_warn = (v.hr is not None and v.hr >= 100)
             hr_crit = (v.hr is not None and (v.hr >= 140 or v.hr < 45))
@@ -107,38 +105,39 @@ def render(scored, surge_factor, surge_active, role_display):
             sbp_warn = (v.sbp is not None and v.sbp < 100)
             sbp_crit = (v.sbp is not None and v.sbp < 90)
 
-            vhtml = "<div class='vgrid'>"
-            vhtml += vital_cell("Heart Rate", v.hr, "bpm", hr_warn, hr_crit, "🚨 Critical" if hr_crit else ("⚠️ High" if hr_warn else None))
-            vhtml += vital_cell("Resp. Rate", v.rr, "/min", rr_warn, rr_crit, "🚨 Critical" if rr_crit else ("⚠️ High" if rr_warn else None))
-            vhtml += vital_cell("SpO₂", v.spo2, "%", spo2_warn, spo2_crit, "🚨 Critical" if spo2_crit else ("⚠️ Low" if spo2_warn else None))
-            vhtml += vital_cell("Systolic BP", v.sbp, "mmHg", sbp_warn, sbp_crit, "🚨 Critical" if sbp_crit else ("⚠️ Low" if sbp_warn else None))
-            vhtml += vital_cell("Temperature", v.temp, "°C")
-            vhtml += vital_cell("Consciousness", v.avpu, "(AVPU)")
-            vhtml += "</div>"
-            st.markdown(vhtml, unsafe_allow_html=True)
+            vitals_card_html = f"""
+            <div class="card" style="padding:16px;">
+              <div class="vgrid">
+                {vital_cell("Heart Rate", v.hr, "bpm", hr_warn, hr_crit, "🚨 Critical" if hr_crit else ("⚠️ High" if hr_warn else None))}
+                {vital_cell("Resp. Rate", v.rr, "/min", rr_warn, rr_crit, "🚨 Critical" if rr_crit else ("⚠️ High" if rr_warn else None))}
+                {vital_cell("SpO₂", v.spo2, "%", spo2_warn, spo2_crit, "🚨 Critical" if spo2_crit else ("⚠️ Low" if spo2_warn else None))}
+                {vital_cell("Systolic BP", v.sbp, "mmHg", sbp_warn, sbp_crit, "🚨 Critical" if sbp_crit else ("⚠️ Low" if sbp_warn else None))}
+                {vital_cell("Temperature", v.temp, "°C")}
+                {vital_cell("Consciousness", v.avpu, "(AVPU)")}
+              </div>
+            </div>
+            """
+            render_html(vitals_card_html)
 
-            st.markdown(f"<div style='margin-top:14px;'>{section_label('📜 Historical EHR Baseline')}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='margin-top:12px;'>{section_label('📜 Historical EHR Baseline')}</div>", unsafe_allow_html=True)
             has_hist = str(rec["has_history"]).lower() not in ("false", "0", "")
             history = get_history(rec["patient_id"])
             if not has_hist:
-                st.markdown(
+                render_html(
                     alert_box("info", "First-Time Patient (Zero Prior History)", 
-                              "No prior institutional encounters on file. Assessed strictly against standard population reference ranges."),
-                    unsafe_allow_html=True,
+                              "No prior institutional encounters on file. Assessed strictly against standard population reference ranges.")
                 )
             elif history:
                 conds = ", ".join(history["chronic_conditions"]) or "None documented"
-                st.markdown(
+                render_html(
                     alert_box("ok", "📋 Documented Baseline on File", 
                               f"Baseline HR: <b>{history['baseline_hr']} bpm</b> · Baseline SBP: <b>{history['baseline_sbp']} mmHg</b><br>"
-                              f"Chronic Conditions: <b>{conds}</b><br>Last Encounter: <b>{history['last_visit_date']}</b> (Assigned Level {history['last_visit_acuity']})."),
-                    unsafe_allow_html=True,
+                              f"Chronic Conditions: <b>{conds}</b><br>Last Encounter: <b>{history['last_visit_date']}</b> (Assigned Level {history['last_visit_acuity']}).")
                 )
             else:
-                st.markdown(
+                render_html(
                     alert_box("warn", "Returning Patient — Incomplete Baseline", 
-                              "Prior record exists in database, but no verified clinical baseline vitals were captured."),
-                    unsafe_allow_html=True,
+                              "Prior record exists in database, but no verified clinical baseline vitals were captured.")
                 )
 
             with st.expander("🔒 Data Protection & Field Minimization (HIPAA)"):
@@ -148,52 +147,61 @@ def render(scored, surge_factor, surge_active, role_display):
 
         with right:
             st.markdown(section_label('⚡ AI Triage Recommendation'), unsafe_allow_html=True)
-            st.markdown(
-                f"""<div class="acuity-banner" style="--COL:{HEX[m['c']]};--BGC:{BG[m['c']]};--BD:{BD[m['c']]}">
-                      <div class="lvl">L{res.acuity}</div>
-                      <div class="rt">
-                        <div class="lbl">{m['label']} — Level {res.acuity}</div>
-                        <div class="act">{res.recommended_action}</div>
-                      </div>
-                    </div>""",
-                unsafe_allow_html=True,
+            render_html(
+                f"""
+                <div class="acuity-banner" style="--COL:{HEX[m['c']]};--BGC:{BG[m['c']]};--BD:{BD[m['c']]}">
+                  <div class="lvl">L{res.acuity}</div>
+                  <div class="rt">
+                    <div class="lbl">{m['label']} — Level {res.acuity}</div>
+                    <div class="act">{res.recommended_action}</div>
+                  </div>
+                </div>
+                """
             )
 
             if res.red_flags:
                 flags_html = "".join(f"<li>{f}</li>" for f in res.red_flags)
-                st.markdown(
-                    f"""<div class="abox abox-crit">
-                        <b>🚨 Red-Flag Safety Trigger — {len(res.red_flags)} Mandated Escalation(s)</b>
-                        <ul class="reasons" style="margin-top:6px;">{flags_html}</ul>
-                        <div style="font-size:0.8rem;margin-top:6px;opacity:0.9;">Mandated safety thresholds elevate priority and cannot be relaxed by personal history.</div>
-                        </div>""",
-                    unsafe_allow_html=True,
-                )
-
-            cc = CONF_COLOR[res.confidence_label]
-            st.markdown("<div class='card'>", unsafe_allow_html=True)
-            st.markdown(
-                f"""<div style="display:flex;justify-content:space-between;align-items:baseline;">
-                      <div class="card-title" style="margin-bottom:0;">Assessment Confidence</div>
-                      <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:{HEX[cc]};font-size:1.1rem;">
-                        {int(res.confidence*100)}% · {res.confidence_label.upper()}
-                      </div>
+                render_html(
+                    f"""
+                    <div class="abox abox-crit">
+                      <b>🚨 Red-Flag Safety Trigger — {len(res.red_flags)} Mandated Escalation(s)</b>
+                      <ul class="reasons" style="margin-top:6px;">{flags_html}</ul>
+                      <div style="font-size:0.8rem;margin-top:6px;opacity:0.9;">Mandated safety thresholds elevate priority and cannot be relaxed by personal history.</div>
                     </div>
-                    <div class="conf-track" style="margin-top:10px;">
-                      <div class="conf-fill" style="width:{int(res.confidence*100)}%;background:{HEX[cc]};"></div>
-                    </div>""",
-                unsafe_allow_html=True,
-            )
-            if res.confidence_label == "Low":
-                st.markdown(
-                    f"<div style='margin-top:12px;'>{alert_box('warn', '⚠️ Uncertainty Safety Escalation', 'Priority was raised by +1 tier because critical vitals are missing. Re-take complete vital signs to confirm.')}</div>",
-                    unsafe_allow_html=True,
+                    """
                 )
-            st.markdown("</div>", unsafe_allow_html=True)
 
-            st.markdown("<div class='card'><div class='card-title'>🔍 Clinical Decision Rationale</div>", unsafe_allow_html=True)
-            st.markdown("<ul class='reasons'>" + "".join(f"<li>{r}</li>" for r in res.reasons) + "</ul></div>",
-                        unsafe_allow_html=True)
+            # Confidence Card — single unified container
+            cc = CONF_COLOR[res.confidence_label]
+            low_alert = ""
+            if res.confidence_label == "Low":
+                low_alert = f"<div style='margin-top:12px;'>{alert_box('warn', '⚠️ Uncertainty Safety Escalation', 'Priority was raised by +1 tier because critical vitals are missing. Re-take complete vital signs to confirm.')}</div>"
+
+            confidence_card_html = f"""
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                <div class="card-title" style="margin-bottom:0;">Assessment Confidence</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-weight:700;color:{HEX[cc]};font-size:1.1rem;">
+                  {int(res.confidence*100)}% &middot; {res.confidence_label.upper()}
+                </div>
+              </div>
+              <div class="conf-track" style="margin-top:10px;">
+                <div class="conf-fill" style="width:{int(res.confidence*100)}%;background:{HEX[cc]};"></div>
+              </div>
+              {low_alert}
+            </div>
+            """
+            render_html(confidence_card_html)
+
+            # Rationale Card — single unified container
+            reasons_html = "".join(f"<li>{r}</li>" for r in res.reasons)
+            rationale_card_html = f"""
+            <div class="card">
+              <div class="card-title">🔍 Clinical Decision Rationale</div>
+              <ul class="reasons">{reasons_html}</ul>
+            </div>
+            """
+            render_html(rationale_card_html)
 
         if audit.should_log_score(st.session_state, rec["patient_id"], res.acuity):
             audit.log_event("SCORE", rec["patient_id"],
@@ -249,17 +257,18 @@ def render(scored, surge_factor, surge_active, role_display):
         c_meta = ACUITY_META[custom_res.acuity]
         
         st.divider()
-        st.markdown(
-            f"""<div class="acuity-banner" style="--COL:{HEX[c_meta['c']]};--BGC:{BG[c_meta['c']]};--BD:{BD[c_meta['c']]}">
-                  <div class="lvl">L{custom_res.acuity}</div>
-                  <div class="rt">
-                    <div class="lbl">{c_meta['label']} — Level {custom_res.acuity}</div>
-                    <div class="act">{custom_res.recommended_action}</div>
-                  </div>
-                </div>""",
-            unsafe_allow_html=True,
+        render_html(
+            f"""
+            <div class="acuity-banner" style="--COL:{HEX[c_meta['c']]};--BGC:{BG[c_meta['c']]};--BD:{BD[c_meta['c']]}">
+              <div class="lvl">L{custom_res.acuity}</div>
+              <div class="rt">
+                <div class="lbl">{c_meta['label']} — Level {custom_res.acuity}</div>
+                <div class="act">{custom_res.recommended_action}</div>
+              </div>
+            </div>
+            """
         )
         if custom_res.red_flags:
             flags_text = "".join(f"<li>{f}</li>" for f in custom_res.red_flags)
-            st.markdown(f'<div class="abox abox-crit"><b>🚨 Red Flags:</b><ul class="reasons">{flags_text}</ul></div>', unsafe_allow_html=True)
+            render_html(f'<div class="abox abox-crit"><b>🚨 Red Flags:</b><ul class="reasons">{flags_text}</ul></div>')
         st.markdown(f"**Reasons:** " + " · ".join(custom_res.reasons))

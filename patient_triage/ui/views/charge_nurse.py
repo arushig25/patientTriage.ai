@@ -2,7 +2,7 @@ import numpy as np
 import streamlit as st
 from patient_triage.core.engine import (safe_wait_minutes, wait_breach, effective_urgency)
 from patient_triage.security import audit
-from patient_triage.ui.components import (ACUITY_META, HEX, chip, section_label, alert_box)
+from patient_triage.ui.components import (ACUITY_META, HEX, chip, section_label, alert_box, render_html)
 
 def render(scored, surge_factor, surge_active, role_display):
     rng = np.random.default_rng(7)
@@ -27,7 +27,7 @@ def render(scored, surge_factor, surge_active, role_display):
     board.sort(key=lambda b: b["urgency"])
     n_breach = sum(1 for b in board if b["breach"])
 
-    st.markdown(
+    render_html(
         f"""
         <div class="stat-row">
           <div class="stat-card neutral"><div class="n">{n_total}</div><div class="l">Waiting Room Queue</div></div>
@@ -36,22 +36,19 @@ def render(scored, surge_factor, surge_active, role_display):
           <div class="stat-card l1"><div class="n">{n_breach}</div><div class="l">Safe-Wait Breaches</div></div>
           <div class="stat-card neutral"><div class="n">{surge_factor}×</div><div class="l">Current Volume Surge</div></div>
         </div>
-        """,
-        unsafe_allow_html=True,
+        """
     )
 
     if surge_active:
         base60 = safe_wait_minutes(4, 1.0)
         cur60 = safe_wait_minutes(4, surge_factor)
-        st.markdown(
+        render_html(
             alert_box("crit", f"🔴 SURGE PROTOCOL ACTIVE — {surge_factor}× Normal Department Load", 
-                      f"Safe waiting thresholds have tightened across non-critical tiers. Waiting-room board below is dynamically re-ranked. (Example: Level 4 threshold shortened from {base60} min to {cur60} min)."),
-            unsafe_allow_html=True,
+                      f"Safe waiting thresholds have tightened across non-critical tiers. Waiting-room board below is dynamically re-ranked. (Example: Level 4 threshold shortened from {base60} min to {cur60} min).")
         )
     else:
-        st.markdown(
-            alert_box("ok", "✓ Normal Operational Flow", "Safe-wait thresholds are calibrated at standard baselines."),
-            unsafe_allow_html=True,
+        render_html(
+            alert_box("ok", "✓ Normal Operational Flow", "Safe-wait thresholds are calibrated at standard baselines.")
         )
 
     st.markdown(section_label('📋 Live Waiting-Room Priority Queue (Highest Clinical Risk First)'), unsafe_allow_html=True)
@@ -84,16 +81,17 @@ def render(scored, surge_factor, surge_active, role_display):
         why = ""
         if res.confidence_label == "Low" and not b["breach"]:
             why = '<div style="font-size:0.78rem;color:var(--l1);margin-top:2px;font-weight:600;">⚠️ Low-confidence triage — surfaced earlier in priority queue</div>'
-        st.markdown(
-            f"""<div class="pcard" style="--COL:{HEX[m['c']]}">
-                  <div class="pid">{rec['patient_id']}</div>
-                  <div class="who">
-                    <div class="nm">{rec['name']} <span style="font-weight:400;color:var(--muted);font-size:0.85rem;">· {int(float(rec['age']))}y</span></div>
-                    <div class="cc">{rec['complaint'].capitalize()}</div>
-                  </div>
-                  <div class="lvl">L{res.acuity} · {m['label']}</div>
-                  <div class="wait">Elapsed: <b>{b['waited']}</b> min · Limit: <b>{b['limit']}</b> min{why}</div>
-                  <div class="flagbadge">{status}</div>
-                </div>""",
-            unsafe_allow_html=True,
-        )
+        
+        pcard_html = f"""
+        <div class="pcard" style="--COL:{HEX[m['c']]}">
+          <div class="pid">{rec['patient_id']}</div>
+          <div class="who">
+            <div class="nm">{rec['name']} <span style="font-weight:400;color:var(--muted);font-size:0.85rem;">· {int(float(rec['age']))}y</span></div>
+            <div class="cc">{rec['complaint'].capitalize()}</div>
+          </div>
+          <div class="lvl">L{res.acuity} · {m['label']}</div>
+          <div class="wait">Elapsed: <b>{b['waited']}</b> min · Limit: <b>{b['limit']}</b> min{why}</div>
+          <div class="flagbadge">{status}</div>
+        </div>
+        """
+        render_html(pcard_html)
