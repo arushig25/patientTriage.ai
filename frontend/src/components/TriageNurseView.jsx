@@ -121,6 +121,81 @@ export default function TriageNurseView({
     setIsEditingVitals(false);
   };
 
+  const simPresets = [
+    {
+      name: '🚨 Septic Shock (L1)',
+      age: 68,
+      complaint: 'Altered mental status, shaking chills, fever',
+      hr: 138,
+      rr: 32,
+      spo2: 89,
+      sbp: 74,
+      temp: 39.4,
+      avpu: 'V',
+      on_oxygen: true,
+    },
+    {
+      name: '🫀 Acute STEMI (L2)',
+      age: 54,
+      complaint: 'Crushing retrosternal chest pain with diaphoresis',
+      hr: 108,
+      rr: 22,
+      spo2: 93,
+      sbp: 145,
+      temp: 37.0,
+      avpu: 'A',
+      on_oxygen: false,
+    },
+    {
+      name: '🧒 Pediatric Stridor (L2)',
+      age: 3,
+      complaint: 'Barking cough, inspiratory stridor, retractions',
+      hr: 155,
+      rr: 44,
+      spo2: 91,
+      sbp: 95,
+      temp: 38.6,
+      avpu: 'A',
+      on_oxygen: false,
+    },
+    {
+      name: '🧠 Acute Stroke Alert (L2)',
+      age: 72,
+      complaint: 'Sudden left-sided facial droop and arm weakness',
+      hr: 82,
+      rr: 18,
+      spo2: 97,
+      sbp: 178,
+      temp: 36.9,
+      avpu: 'A',
+      on_oxygen: false,
+    },
+    {
+      name: '🩹 Mild Ankle Sprain (L4)',
+      age: 26,
+      complaint: 'Right lateral ankle pain and mild swelling after twisting',
+      hr: 72,
+      rr: 15,
+      spo2: 99,
+      sbp: 118,
+      temp: 36.6,
+      avpu: 'A',
+      on_oxygen: false,
+    }
+  ];
+
+  const loadPreset = (p) => {
+    setSimAge(p.age);
+    setSimComplaint(p.complaint);
+    setSimHr(p.hr);
+    setSimRr(p.rr);
+    setSimSpo2(p.spo2);
+    setSimSbp(p.sbp);
+    setSimTemp(p.temp);
+    setSimAvpu(p.avpu);
+    setSimOxygen(p.on_oxygen);
+  };
+
   const handleRunSimulator = async () => {
     setSimLoading(true);
     try {
@@ -149,6 +224,16 @@ export default function TriageNurseView({
       setSimLoading(false);
     }
   };
+
+  // Auto-calculate simulator output whenever parameters change
+  useEffect(() => {
+    if (activeTab === 'simulator') {
+      const timer = setTimeout(() => {
+        handleRunSimulator();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, simAge, simComplaint, simHr, simRr, simSpo2, simSbp, simTemp, simAvpu, simOxygen]);
 
   if (!patient && patients.length === 0) {
     return <div className="p-8 text-center text-clinical-400 font-bold">Loading emergency patients...</div>;
@@ -205,149 +290,302 @@ export default function TriageNurseView({
 
       {activeTab === 'simulator' ? (
         /* LIVE TRIAGE SIMULATOR VIEW */
-        <div className="card-surface p-6">
-          <div className="flex items-center justify-between mb-6 pb-4 border-b border-clinical-200 dark:border-clinical-800">
+        <div className="card-surface p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-clinical-200 dark:border-clinical-800">
             <div>
               <h2 className="text-lg font-black text-clinical-900 dark:text-white flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-brand-600 dark:text-brand-400" />
-                <span>Instant Clinical Triage Calculator</span>
+                <span>Instant Clinical Triage Simulator</span>
               </h2>
-              <p className="text-xs text-clinical-500 dark:text-clinical-400 font-medium">
-                Test custom vital combinations, pediatric ranges, and symptom phrases through the clinical decision engine.
+              <p className="text-xs text-clinical-500 dark:text-clinical-400 font-medium mt-0.5">
+                Real-time ESI scoring calculator. Move any slider or select a clinical preset to see AI recommendations recalculate live.
               </p>
             </div>
-            <button
-              onClick={handleRunSimulator}
-              disabled={simLoading}
-              className="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-black shadow-sm transition-all flex items-center gap-2"
-            >
-              {simLoading ? 'Scoring...' : 'Compute AI Recommendation'}
-              <ArrowRight className="w-4 h-4" />
-            </button>
+
+            <div className="flex items-center gap-2">
+              <span className={`px-2.5 py-1 rounded-full text-xs font-black border flex items-center gap-1.5 ${
+                simLoading
+                  ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950 dark:text-amber-300'
+                  : 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${simLoading ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'}`}></span>
+                <span>{simLoading ? 'Calculating...' : 'Live Synced'}</span>
+              </span>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* 1-Click Scenario Presets */}
+          <div>
+            <span className="text-[11px] font-black uppercase tracking-wider text-clinical-500 block mb-2">
+              1-Click Clinical Emergency Presets:
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {simPresets.map((p, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => loadPreset(p)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-black bg-clinical-100 dark:bg-clinical-900 text-clinical-800 dark:text-slate-200 hover:bg-brand-600 hover:text-white border border-clinical-200 dark:border-clinical-800 transition-all shadow-xs"
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Interactive Parameters Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 rounded-2xl bg-clinical-50/50 dark:bg-clinical-950/40 border border-clinical-200 dark:border-clinical-800">
+            {/* Column 1: Demographics & Complaint */}
             <div className="space-y-4">
               <label className="block text-xs font-black uppercase tracking-wider text-clinical-500">
-                Demographics & Mental Status
+                Patient Presentation
               </label>
               <div>
-                <span className="text-xs font-bold text-clinical-700 dark:text-clinical-300">Age (years)</span>
+                <div className="flex items-center justify-between text-xs font-bold text-clinical-700 dark:text-clinical-300 mb-1">
+                  <span>Age</span>
+                  <span className="font-mono text-brand-600 dark:text-brand-400 font-black">{simAge} yrs</span>
+                </div>
                 <input
-                  type="number"
+                  type="range"
+                  min="0"
+                  max="100"
                   value={simAge}
-                  onChange={(e) => setSimAge(e.target.value)}
-                  className="w-full mt-1 bg-clinical-50 dark:bg-clinical-950 border border-clinical-200 dark:border-clinical-800 rounded-xl px-3 py-2 text-sm text-clinical-900 dark:text-white focus:border-brand-500 focus:outline-none"
+                  onChange={(e) => setSimAge(Number(e.target.value))}
+                  className="w-full accent-brand-600 h-1.5 bg-clinical-200 dark:bg-clinical-800 rounded-lg cursor-pointer"
                 />
+                <div className="flex justify-between text-[10px] text-clinical-400 font-bold mt-1">
+                  <span>0y (Infant)</span>
+                  <span>18y</span>
+                  <span>100y</span>
+                </div>
               </div>
+
               <div>
-                <span className="text-xs font-bold text-clinical-700 dark:text-clinical-300">Chief Complaint</span>
+                <span className="text-xs font-bold text-clinical-700 dark:text-clinical-300 block mb-1">Chief Complaint</span>
                 <input
                   type="text"
                   value={simComplaint}
                   onChange={(e) => setSimComplaint(e.target.value)}
-                  className="w-full mt-1 bg-clinical-50 dark:bg-clinical-950 border border-clinical-200 dark:border-clinical-800 rounded-xl px-3 py-2 text-sm text-clinical-900 dark:text-white focus:border-brand-500 focus:outline-none"
+                  placeholder="e.g. Chest pain, severe SOB..."
+                  className="w-full bg-white dark:bg-clinical-900 border border-clinical-200 dark:border-clinical-800 rounded-xl px-3 py-2 text-xs text-clinical-900 dark:text-white focus:border-brand-500 focus:outline-none font-bold"
                 />
               </div>
+
               <div>
-                <span className="text-xs font-bold text-clinical-700 dark:text-clinical-300">AVPU Scale</span>
-                <select
-                  value={simAvpu}
-                  onChange={(e) => setSimAvpu(e.target.value)}
-                  className="w-full mt-1 bg-clinical-50 dark:bg-clinical-950 border border-clinical-200 dark:border-clinical-800 rounded-xl px-3 py-2 text-sm text-clinical-900 dark:text-white focus:border-brand-500 focus:outline-none"
-                >
-                  <option value="A">Alert (A)</option>
-                  <option value="V">Responds to Voice (V)</option>
-                  <option value="P">Responds to Pain (P)</option>
-                  <option value="U">Unresponsive (U)</option>
-                </select>
+                <span className="text-xs font-bold text-clinical-700 dark:text-clinical-300 block mb-1.5">Consciousness (AVPU)</span>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {['A', 'V', 'P', 'U'].map((scale) => (
+                    <button
+                      key={scale}
+                      type="button"
+                      onClick={() => setSimAvpu(scale)}
+                      className={`py-2 rounded-xl text-xs font-black border transition-all ${
+                        simAvpu === scale
+                          ? 'bg-brand-600 text-white border-brand-700 shadow-sm'
+                          : 'bg-white dark:bg-clinical-900 text-clinical-700 dark:text-slate-300 border-clinical-200 dark:border-clinical-800 hover:border-brand-400'
+                      }`}
+                    >
+                      {scale}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-[10px] text-clinical-400 mt-1">
+                  {simAvpu === 'A' ? '✓ Alert' : simAvpu === 'V' ? '⚠️ Responds to Voice' : simAvpu === 'P' ? '🚨 Responds to Pain' : '🚨 Unresponsive'}
+                </div>
               </div>
             </div>
 
+            {/* Column 2: Cardiopulmonary Vitals */}
             <div className="space-y-4">
               <label className="block text-xs font-black uppercase tracking-wider text-clinical-500">
                 Cardiopulmonary Vitals
               </label>
+
+              {/* Heart Rate */}
               <div>
-                <span className="text-xs font-bold text-clinical-700 dark:text-clinical-300">Heart Rate (bpm)</span>
+                <div className="flex items-center justify-between text-xs font-bold text-clinical-700 dark:text-clinical-300 mb-1">
+                  <span>Heart Rate</span>
+                  <span className="font-mono text-rose-600 font-black">{simHr} bpm</span>
+                </div>
                 <input
-                  type="number"
+                  type="range"
+                  min="30"
+                  max="190"
                   value={simHr}
-                  onChange={(e) => setSimHr(e.target.value)}
-                  className="w-full mt-1 bg-clinical-50 dark:bg-clinical-950 border border-clinical-200 dark:border-clinical-800 rounded-xl px-3 py-2 text-sm text-clinical-900 dark:text-white focus:border-brand-500 focus:outline-none"
+                  onChange={(e) => setSimHr(Number(e.target.value))}
+                  className="w-full accent-rose-500 h-1.5 bg-clinical-200 dark:bg-clinical-800 rounded-lg cursor-pointer"
                 />
+                <div className="flex justify-between text-[10px] text-clinical-400 font-bold mt-1">
+                  <span>30</span>
+                  <span>60–100 (Normal)</span>
+                  <span>190</span>
+                </div>
               </div>
+
+              {/* Respiratory Rate */}
               <div>
-                <span className="text-xs font-bold text-clinical-700 dark:text-clinical-300">Respiratory Rate (/min)</span>
+                <div className="flex items-center justify-between text-xs font-bold text-clinical-700 dark:text-clinical-300 mb-1">
+                  <span>Resp. Rate</span>
+                  <span className="font-mono text-sky-600 font-black">{simRr} /min</span>
+                </div>
                 <input
-                  type="number"
+                  type="range"
+                  min="8"
+                  max="55"
                   value={simRr}
-                  onChange={(e) => setSimRr(e.target.value)}
-                  className="w-full mt-1 bg-clinical-50 dark:bg-clinical-950 border border-clinical-200 dark:border-clinical-800 rounded-xl px-3 py-2 text-sm text-clinical-900 dark:text-white focus:border-brand-500 focus:outline-none"
+                  onChange={(e) => setSimRr(Number(e.target.value))}
+                  className="w-full accent-sky-500 h-1.5 bg-clinical-200 dark:bg-clinical-800 rounded-lg cursor-pointer"
                 />
+                <div className="flex justify-between text-[10px] text-clinical-400 font-bold mt-1">
+                  <span>8</span>
+                  <span>12–20 (Normal)</span>
+                  <span>55</span>
+                </div>
               </div>
+
+              {/* SpO2 */}
               <div>
-                <span className="text-xs font-bold text-clinical-700 dark:text-clinical-300">SpO₂ (%)</span>
+                <div className="flex items-center justify-between text-xs font-bold text-clinical-700 dark:text-clinical-300 mb-1">
+                  <span>Oxygen Saturation</span>
+                  <span className={`font-mono font-black ${simSpo2 < 90 ? 'text-red-600' : 'text-teal-600'}`}>
+                    {simSpo2}%
+                  </span>
+                </div>
                 <input
-                  type="number"
+                  type="range"
+                  min="70"
+                  max="100"
                   value={simSpo2}
-                  onChange={(e) => setSimSpo2(e.target.value)}
-                  className="w-full mt-1 bg-clinical-50 dark:bg-clinical-950 border border-clinical-200 dark:border-clinical-800 rounded-xl px-3 py-2 text-sm text-clinical-900 dark:text-white focus:border-brand-500 focus:outline-none"
+                  onChange={(e) => setSimSpo2(Number(e.target.value))}
+                  className="w-full accent-teal-500 h-1.5 bg-clinical-200 dark:bg-clinical-800 rounded-lg cursor-pointer"
                 />
+                <div className="flex justify-between text-[10px] text-clinical-400 font-bold mt-1">
+                  <span>70% (Severe)</span>
+                  <span>95–100% (Adequate)</span>
+                </div>
               </div>
             </div>
 
+            {/* Column 3: Hemodynamics & Temperature */}
             <div className="space-y-4">
               <label className="block text-xs font-black uppercase tracking-wider text-clinical-500">
                 Hemodynamics & Temp
               </label>
+
+              {/* Systolic BP */}
               <div>
-                <span className="text-xs font-bold text-clinical-700 dark:text-clinical-300">Systolic BP (mmHg)</span>
+                <div className="flex items-center justify-between text-xs font-bold text-clinical-700 dark:text-clinical-300 mb-1">
+                  <span>Systolic BP</span>
+                  <span className={`font-mono font-black ${simSbp < 90 ? 'text-red-600' : 'text-indigo-600'}`}>
+                    {simSbp} mmHg
+                  </span>
+                </div>
                 <input
-                  type="number"
+                  type="range"
+                  min="50"
+                  max="230"
                   value={simSbp}
-                  onChange={(e) => setSimSbp(e.target.value)}
-                  className="w-full mt-1 bg-clinical-50 dark:bg-clinical-950 border border-clinical-200 dark:border-clinical-800 rounded-xl px-3 py-2 text-sm text-clinical-900 dark:text-white focus:border-brand-500 focus:outline-none"
+                  onChange={(e) => setSimSbp(Number(e.target.value))}
+                  className="w-full accent-indigo-500 h-1.5 bg-clinical-200 dark:bg-clinical-800 rounded-lg cursor-pointer"
                 />
+                <div className="flex justify-between text-[10px] text-clinical-400 font-bold mt-1">
+                  <span>50 (Shock)</span>
+                  <span>90–120</span>
+                  <span>230 (Crisis)</span>
+                </div>
               </div>
+
+              {/* Temperature */}
               <div>
-                <span className="text-xs font-bold text-clinical-700 dark:text-clinical-300">Temperature (°C)</span>
+                <div className="flex items-center justify-between text-xs font-bold text-clinical-700 dark:text-clinical-300 mb-1">
+                  <span>Temperature</span>
+                  <span className="font-mono text-amber-600 font-black">{Number(simTemp).toFixed(1)} °C</span>
+                </div>
                 <input
-                  type="number"
+                  type="range"
+                  min="34.0"
+                  max="41.5"
                   step="0.1"
                   value={simTemp}
-                  onChange={(e) => setSimTemp(e.target.value)}
-                  className="w-full mt-1 bg-clinical-50 dark:bg-clinical-950 border border-clinical-200 dark:border-clinical-800 rounded-xl px-3 py-2 text-sm text-clinical-900 dark:text-white focus:border-brand-500 focus:outline-none"
+                  onChange={(e) => setSimTemp(Number(e.target.value))}
+                  className="w-full accent-amber-500 h-1.5 bg-clinical-200 dark:bg-clinical-800 rounded-lg cursor-pointer"
                 />
+                <div className="flex justify-between text-[10px] text-clinical-400 font-bold mt-1">
+                  <span>34°C (Hypothermia)</span>
+                  <span>37°C</span>
+                  <span>41.5°C (Hyperpyrexia)</span>
+                </div>
               </div>
-              <div className="pt-5">
-                <label className="flex items-center gap-3 cursor-pointer">
+
+              {/* Supplemental O2 */}
+              <div className="pt-2">
+                <label className="flex items-center gap-3 cursor-pointer p-2.5 rounded-xl bg-white dark:bg-clinical-900 border border-clinical-200 dark:border-clinical-800">
                   <input
                     type="checkbox"
                     checked={simOxygen}
                     onChange={(e) => setSimOxygen(e.target.checked)}
                     className="w-4 h-4 rounded text-brand-600 focus:ring-0"
                   />
-                  <span className="text-xs font-bold text-clinical-700 dark:text-clinical-300">Receiving Supplemental O₂</span>
+                  <span className="text-xs font-bold text-clinical-800 dark:text-slate-200">Supplemental O₂ Supplied</span>
                 </label>
               </div>
             </div>
           </div>
 
+          {/* SIMULATOR REAL-TIME AI OUTPUT DISPLAY */}
           {simResult && (
-            <div className="mt-8 pt-6 border-t border-clinical-200 dark:border-clinical-800">
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-clinical-500">
+                  Simulated Clinical Decision Output:
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono font-bold text-clinical-500">
+                    EWS Score: <b className="text-brand-700 dark:text-brand-400 font-black text-sm">{simResult.triage.ews_score}</b>
+                  </span>
+                  <span className="text-xs font-mono font-bold text-clinical-500">
+                    Confidence: <b className="text-emerald-600 font-black">{Math.round(simResult.triage.confidence * 100)}%</b>
+                  </span>
+                </div>
+              </div>
+
               <AcuityBadge level={simResult.triage.acuity} size="lg" />
-              <div className="mt-4 p-4 rounded-2xl bg-clinical-50 dark:bg-clinical-950 border border-clinical-200 dark:border-clinical-800 text-sm">
-                <div className="font-extrabold text-brand-700 dark:text-brand-400 mb-1">Recommended Next Action:</div>
-                <div className="text-clinical-800 dark:text-clinical-200 font-semibold">{simResult.triage.recommended_action}</div>
-                <div className="mt-2 text-xs text-clinical-500">
-                  <b>Reasons:</b> {simResult.triage.reasons.join(' · ')}
+
+              {/* Next Action Box */}
+              <div className="p-4 rounded-2xl bg-white dark:bg-clinical-900 border border-clinical-200 dark:border-clinical-800 shadow-xs space-y-2">
+                <span className="text-[10px] font-black text-clinical-400 uppercase tracking-wider">Mandated Next Clinical Action</span>
+                <div className="text-sm font-black text-clinical-900 dark:text-white flex items-start gap-2">
+                  <ArrowRight className="w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0 mt-0.5" />
+                  <span>{simResult.triage.recommended_action}</span>
+                </div>
+
+                {simResult.high_risk_category && (
+                  <div className="mt-2 text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/60 p-2.5 rounded-xl border border-amber-200 dark:border-amber-500/40 flex items-center gap-2">
+                    <AlertOctagon className="w-4 h-4 shrink-0" />
+                    <span>Matched High-Risk Complaint: <b>{simResult.high_risk_category}</b> (Phrase: "{simResult.high_risk_phrase}") &rarr; Floor priority locked at Level 2.</span>
+                  </div>
+                )}
+
+                {simResult.triage.red_flags && simResult.triage.red_flags.length > 0 && (
+                  <div className="mt-2 p-2.5 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-500/40 text-xs text-red-800 dark:text-red-300">
+                    <b>Critical Red Flags:</b> {simResult.triage.red_flags.join(' · ')}
+                  </div>
+                )}
+
+                <div className="pt-2 border-t border-clinical-100 dark:border-clinical-800 text-xs text-clinical-600 dark:text-clinical-400">
+                  <b className="text-clinical-900 dark:text-white">Clinical Rationale:</b>
+                  <ul className="mt-1 space-y-0.5 list-disc pl-4">
+                    {simResult.triage.reasons.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </div>
           )}
         </div>
       ) : (
+
         /* PATIENT INTAKE WORKSTATION VIEW */
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* LEFT: Arriving Patients Selector (3 Cols) */}
