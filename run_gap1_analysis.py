@@ -6,17 +6,17 @@ Score all patients in the base dataset and document the Gap 1 fix.
 This script shows the impact of switching from age-blind to age-aware red-flag thresholds.
 """
 
-import csv
+import os
 from triage_engine import score_patient, Vitals, age_band
+from data_simulator import write_csv, read_csv_decrypted
 
 def load_patients(filename):
-    """Load patient data from CSV."""
-    patients = []
-    with open(filename, 'r') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            patients.append(row)
-    return patients
+    """Load patient data (Gap 4: patients.csv is encrypted at rest, so
+    read it through the decrypting helper rather than the raw csv
+    module)."""
+    if not os.path.exists(filename):
+        write_csv(filename)
+    return read_csv_decrypted(filename)
 
 def score_all_patients(patients):
     """Score all patients and return results."""

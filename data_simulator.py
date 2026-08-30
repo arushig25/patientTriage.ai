@@ -10,7 +10,9 @@ Includes the mandated cases:
 No real patient data is used.
 """
 
-import csv, os, random
+import csv, io, os, random
+
+import privacy
 
 random.seed(42)
 
@@ -43,14 +45,78 @@ def base_patients():
 COLS = ["patient_id","name","age","has_history","hr","rr","spo2","sbp",
         "temp","avpu","on_oxygen","complaint"]
 
+# ---------- Gap 2: simulated prior-visit history ----------
+# Represents what a hospital EHR would already hold for a *subset* of
+# returning (has_history=True) patients -- not every returning patient has
+# a fully documented baseline on file (e.g. a prior encounter that didn't
+# capture full vitals), which is realistic and preserves the distinction
+# between "has_history flag set" and "usable baseline available." Patients
+# not listed here fall back to the original (pre-Gap-2) scoring behavior.
+#
+# Three intentionally-varied demo cases are included among the eight:
+#   - P02: chronic COPD -- shows the red-flag SpO2 floor lowering.
+#   - P15: current HR is within 10% of documented baseline -- shows the
+#     population-abnormal score being eased down (known-abnormal-for-them).
+#   - P11: current HR is 30% above documented baseline while still
+#     population-normal -- shows the new-deviation awareness bump.
+# The rest (P07, P10, P14, P18, P20) are realistic "unremarkable" history
+# entries -- most returning-patient visits don't change the outcome, and a
+# feature that only ever fires dramatically wouldn't be honest about that.
+HISTORY = {
+    "P02": {"baseline_hr": 95,  "baseline_sbp": 100, "chronic_conditions": ["COPD"],
+            "last_visit_acuity": 3, "last_visit_date": "2026-05-14"},
+    "P07": {"baseline_hr": 82,  "baseline_sbp": 118, "chronic_conditions": [],
+            "last_visit_acuity": 4, "last_visit_date": "2026-07-02"},
+    "P10": {"baseline_hr": 88,  "baseline_sbp": 140, "chronic_conditions": ["cardiac"],
+            "last_visit_acuity": 3, "last_visit_date": "2026-06-20"},
+    "P11": {"baseline_hr": 60,  "baseline_sbp": 116, "chronic_conditions": [],
+            "last_visit_acuity": 5, "last_visit_date": "2026-02-11"},
+    "P14": {"baseline_hr": 78,  "baseline_sbp": 120, "chronic_conditions": [],
+            "last_visit_acuity": 4, "last_visit_date": "2026-01-30"},
+    "P15": {"baseline_hr": 46,  "baseline_sbp": 148, "chronic_conditions": ["cardiac"],
+            "last_visit_acuity": 4, "last_visit_date": "2026-06-05"},
+    "P18": {"baseline_hr": 90,  "baseline_sbp": 130, "chronic_conditions": [],
+            "last_visit_acuity": 4, "last_visit_date": "2026-03-22"},
+    "P20": {"baseline_hr": 84,  "baseline_sbp": 120, "chronic_conditions": [],
+            "last_visit_acuity": 5, "last_visit_date": "2026-04-18"},
+}
+
+
+def get_history(patient_id):
+    """Return the documented history dict for a patient, or None if no
+    baseline is on file (zero-history patients and returning patients
+    without a captured baseline both return None). Accepts surge-suffixed
+    IDs (e.g. "P02-s1") by resolving back to the base patient's history."""
+    return HISTORY.get(base_patient_id(patient_id))
+
+
+def base_patient_id(patient_id):
+    """Strip the "-sN" surge-replica suffix added by surge_patients(),
+    e.g. "P02-s1" -> "P02". IDs without a suffix pass through unchanged."""
+    return patient_id.split("-s")[0] if "-s" in patient_id else patient_id
+
 def write_csv(path="data/patients.csv"):
+    """Write the base patient dataset, encrypted at rest (Gap 4) -- the
+    file on disk is a Fernet blob, never plaintext CSV. Use
+    read_csv_decrypted() to get the rows back."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(COLS)
-        for row in base_patients():
-            w.writerow(row)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(COLS)
+    for row in base_patients():
+        w.writerow(row)
+    privacy.write_encrypted(path, buf.getvalue())
     return path
+
+
+def read_csv_decrypted(path="data/patients.csv"):
+    """Return the base patient dataset as a list of dicts, decrypting
+    the at-rest file written by write_csv(). Raises FileNotFoundError
+    if write_csv() hasn't been run yet."""
+    raw = privacy.read_encrypted(path)
+    if not raw:
+        raise FileNotFoundError(f"{path} not found -- run write_csv() first")
+    return list(csv.DictReader(io.StringIO(raw)))
 
 def surge_patients(multiplier=3):
     """Return base patients replicated & jittered to simulate a surge."""

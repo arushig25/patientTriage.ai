@@ -1,0 +1,21 @@
+patient_id,name,age,has_history,hr,rr,spo2,sbp,temp,avpu,on_oxygen,complaint
+P01,A. Rivera,54,True,88,16,98,128,36.8,A,False,ankle sprain
+P02,B. Chen,67,True,122,26,89,96,38.7,V,True,shortness of breath
+P03,C. Okafor,3,True,168,44,95,,39.2,A,False,fever
+P04,D. Smith,41,False,72,14,99,,,,,laceration
+P05,E. Watanabe,78,True,58,12,94,138,36.2,A,False,dizziness
+P06,F. Muller,29,True,132,28,90,88,37.1,P,False,altered consciousness
+P07,G. Haddad,35,True,84,18,97,120,37.0,A,False,chest pain
+P08,H. Ivanova,6,True,110,24,98,100,37.4,A,False,cough
+P09,I. Brooks,50,False,96,20,96,110,37.9,A,False,abdominal pain
+P10,J. Costa,62,True,90,17,97,145,36.9,A,False,back pain
+P11,K. Ahmed,19,True,78,15,99,118,36.7,A,False,headache
+P12,L. Nguyen,83,True,104,22,92,98,38.1,V,False,confusion
+P13,M. Torres,1,True,175,52,94,,38.9,A,False,irritable
+P14,N. Green,45,True,80,16,98,124,36.6,A,False,wrist pain
+P15,O. Petrov,70,True,48,14,95,150,36.4,A,False,palpitations
+P16,P. Silva,33,False,,,,,,,,feels unwell
+P17,Q. Adebayo,27,True,140,30,88,,38.5,P,True,seizure
+P18,R. Kim,58,True,92,18,96,132,37.2,A,False,nausea
+P19,S. Lopez,9,True,130,28,93,105,38.6,A,False,difficulty breathing
+P20,T. Fischer,48,True,86,19,97,122,36.9,A,False,minor burn
