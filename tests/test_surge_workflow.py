@@ -20,7 +20,7 @@ Gap 3 design principle:
 """
 
 import pytest
-from triage_engine import (
+from patient_triage.core.engine import (
     Vitals, score_patient, _red_flags, _baseline_adjusted_score,
     compute_surge_factor, safe_wait_minutes, wait_breach, effective_urgency,
     SAFE_WAIT_MINUTES, NORMAL_CAPACITY, CHRONIC_CONDITION_MODIFIERS,

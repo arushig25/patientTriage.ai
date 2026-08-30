@@ -7,8 +7,8 @@ This script shows the impact of switching from age-blind to age-aware red-flag t
 """
 
 import os
-from triage_engine import score_patient, Vitals, age_band
-from data_simulator import write_csv, read_csv_decrypted
+from patient_triage.core.engine import score_patient, Vitals, age_band
+from patient_triage.data.simulator import write_csv, read_csv_decrypted
 
 def load_patients(filename):
     """Load patient data (Gap 4: patients.csv is encrypted at rest, so

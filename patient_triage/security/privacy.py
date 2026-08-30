@@ -186,3 +186,4 @@ FIELD_MINIMIZATION = {
     "history":     ("Baseline-relative re-scoring for returning patients", "7 years"),
     "audit_log":   ("Accountability for scores, alerts, and overrides", "Indefinite, hash-chained, pseudonymized"),
 }
+

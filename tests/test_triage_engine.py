@@ -19,7 +19,7 @@ Design principle:
 """
 
 import pytest
-from triage_engine import (
+from patient_triage.core.engine import (
     Vitals, age_band, score_patient, _red_flags,
     PEDS_NORMAL, RED_FLAG_THRESHOLDS,
 )

@@ -21,11 +21,11 @@ Gap 7 design principle:
 
 import pytest
 
-from triage_engine import (
+from patient_triage.core.engine import (
     Vitals, score_patient, _match_high_risk_complaint, _normalize_complaint,
     HIGH_RISK_COMPLAINTS,
 )
-import audit_log
+from patient_triage.security import audit
 
 
 # ==============================================================================
@@ -113,26 +113,26 @@ class TestShouldLogScore:
 
     def test_first_score_for_a_patient_logs(self):
         state = {}
-        assert audit_log.should_log_score(state, "P01", 3) is True
+        assert audit.should_log_score(state, "P01", 3) is True
 
     def test_identical_rerun_does_not_relog(self):
         state = {}
-        audit_log.should_log_score(state, "P01", 3)
-        assert audit_log.should_log_score(state, "P01", 3) is False
+        audit.should_log_score(state, "P01", 3)
+        assert audit.should_log_score(state, "P01", 3) is False
 
     def test_acuity_change_for_same_patient_relogs(self):
         state = {}
-        audit_log.should_log_score(state, "P01", 3)
-        assert audit_log.should_log_score(state, "P01", 2) is True
+        audit.should_log_score(state, "P01", 3)
+        assert audit.should_log_score(state, "P01", 2) is True
 
     def test_switching_patient_relogs(self):
         state = {}
-        audit_log.should_log_score(state, "P01", 3)
-        assert audit_log.should_log_score(state, "P02", 3) is True
+        audit.should_log_score(state, "P01", 3)
+        assert audit.should_log_score(state, "P02", 3) is True
 
     def test_many_reruns_of_same_outcome_log_exactly_once(self):
         state = {}
-        fires = [audit_log.should_log_score(state, "P01", 4) for _ in range(10)]
+        fires = [audit.should_log_score(state, "P01", 4) for _ in range(10)]
         assert fires == [True] + [False] * 9
 
 
@@ -140,26 +140,26 @@ class TestShouldLogAlert:
 
     def test_transition_into_breach_logs(self):
         state = {}
-        assert audit_log.should_log_alert(state, "P05", True) is True
+        assert audit.should_log_alert(state, "P05", True) is True
 
     def test_staying_breached_does_not_relog(self):
         state = {}
-        audit_log.should_log_alert(state, "P05", True)
-        assert audit_log.should_log_alert(state, "P05", True) is False
-        assert audit_log.should_log_alert(state, "P05", True) is False
+        audit.should_log_alert(state, "P05", True)
+        assert audit.should_log_alert(state, "P05", True) is False
+        assert audit.should_log_alert(state, "P05", True) is False
 
     def test_resolving_then_re_breaching_logs_again(self):
         state = {}
-        audit_log.should_log_alert(state, "P05", True)    # breach starts
-        audit_log.should_log_alert(state, "P05", False)   # resolved
-        assert audit_log.should_log_alert(state, "P05", True) is True  # new breach
+        audit.should_log_alert(state, "P05", True)    # breach starts
+        audit.should_log_alert(state, "P05", False)   # resolved
+        assert audit.should_log_alert(state, "P05", True) is True  # new breach
 
     def test_never_breached_never_logs(self):
         state = {}
-        assert audit_log.should_log_alert(state, "P05", False) is False
+        assert audit.should_log_alert(state, "P05", False) is False
 
     def test_independent_per_patient(self):
         state = {}
-        assert audit_log.should_log_alert(state, "P01", True) is True
-        assert audit_log.should_log_alert(state, "P02", True) is True
-        assert audit_log.should_log_alert(state, "P01", True) is False
+        assert audit.should_log_alert(state, "P01", True) is True
+        assert audit.should_log_alert(state, "P02", True) is True
+        assert audit.should_log_alert(state, "P01", True) is False

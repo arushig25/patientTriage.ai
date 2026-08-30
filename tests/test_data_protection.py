@@ -22,8 +22,8 @@ import os
 
 import pytest
 
-import audit_log
-import privacy
+from patient_triage.security import audit
+from patient_triage.security import privacy
 
 
 @pytest.fixture(autouse=True)
@@ -61,7 +61,7 @@ class TestEncryptionAtRest:
         assert privacy.read_encrypted("data/does_not_exist.enc") == ""
 
     def test_patients_csv_is_encrypted_at_rest(self):
-        from data_simulator import write_csv, read_csv_decrypted
+        from patient_triage.data.simulator import write_csv, read_csv_decrypted
         path = write_csv("data/patients.csv")
         with open(path, "rb") as f:
             raw = f.read()
@@ -72,12 +72,12 @@ class TestEncryptionAtRest:
         assert rows[0]["name"] == "A. Rivera"
 
     def test_audit_log_file_is_encrypted_at_rest(self):
-        audit_log.log_event("SCORE", "P01", {"acuity": 3})
-        with open(audit_log.LOG_PATH, "rb") as f:
+        audit.log_event("SCORE", "P01", {"acuity": 3})
+        with open(audit.LOG_PATH, "rb") as f:
             raw = f.read()
         assert b"P01" not in raw                 # patient_id not visible in plaintext
         assert b"SCORE" not in raw                # event_type not visible in plaintext
-        entries = audit_log.read_log()
+        entries = audit.read_log()
         assert entries[0]["event_type"] == "SCORE"
 
 
@@ -98,14 +98,14 @@ class TestPseudonymization:
         assert "P07" not in token
 
     def test_audit_log_stores_pseudonym_not_raw_patient_id(self):
-        audit_log.log_event("SCORE", "P07", {"acuity": 2})
-        entry = audit_log.read_log()[0]
+        audit.log_event("SCORE", "P07", {"acuity": 2})
+        entry = audit.read_log()[0]
         assert entry["patient_id"] != "P07"
         assert entry["patient_id"] == privacy.pseudonymize("P07")
 
     def test_system_subject_is_never_pseudonymized(self):
-        audit_log.log_event("SURGE_MODE_ON", "SYSTEM", {"surge_factor": 3.0})
-        entry = audit_log.read_log()[0]
+        audit.log_event("SURGE_MODE_ON", "SYSTEM", {"surge_factor": 3.0})
+        entry = audit.read_log()[0]
         assert entry["patient_id"] == "SYSTEM"
 
 
@@ -128,14 +128,14 @@ class TestRBAC:
         assert privacy.check_role_access("Triage Nurse", "") is True
 
     def test_resolve_identity_succeeds_with_correct_password(self):
-        audit_log.log_event("SCORE", "P07", {"acuity": 2})
-        token = audit_log.read_log()[0]["patient_id"]
-        assert audit_log.resolve_identity(token, "Clinical Lead", "triage-lead-2026") == "P07"
+        audit.log_event("SCORE", "P07", {"acuity": 2})
+        token = audit.read_log()[0]["patient_id"]
+        assert audit.resolve_identity(token, "Clinical Lead", "triage-lead-2026") == "P07"
 
     def test_resolve_identity_fails_closed_with_wrong_password(self):
-        audit_log.log_event("SCORE", "P07", {"acuity": 2})
-        token = audit_log.read_log()[0]["patient_id"]
-        resolved = audit_log.resolve_identity(token, "Clinical Lead", "wrong-password")
+        audit.log_event("SCORE", "P07", {"acuity": 2})
+        token = audit.read_log()[0]["patient_id"]
+        resolved = audit.resolve_identity(token, "Clinical Lead", "wrong-password")
         assert resolved == token   # unchanged, not the real patient_id
         assert resolved != "P07"
 
@@ -147,17 +147,17 @@ class TestRBAC:
 class TestAccessLogging:
 
     def test_access_event_is_its_own_event_type(self):
-        audit_log.log_event("ACCESS", "P01", {"fields": ["name", "vitals"],
+        audit.log_event("ACCESS", "P01", {"fields": ["name", "vitals"],
                                                "viewer_role": "Triage Nurse"})
-        entries = audit_log.read_log()
+        entries = audit.read_log()
         assert entries[0]["event_type"] == "ACCESS"
         assert entries[0]["payload"]["fields"] == ["name", "vitals"]
 
     def test_should_log_access_only_fires_on_patient_change(self):
         state = {}
-        assert audit_log.should_log_access(state, "P01") is True
-        assert audit_log.should_log_access(state, "P01") is False   # same patient, rerun
-        assert audit_log.should_log_access(state, "P02") is True    # different patient
+        assert audit.should_log_access(state, "P01") is True
+        assert audit.should_log_access(state, "P01") is False   # same patient, rerun
+        assert audit.should_log_access(state, "P02") is True    # different patient
 
 
 # ==============================================================================

@@ -32,7 +32,7 @@ import hashlib
 import json
 from datetime import datetime
 
-import privacy
+from patient_triage.security import privacy
 
 LOG_PATH = "data/audit_log.jsonl.enc"
 
@@ -147,3 +147,4 @@ def should_log_access(session_state, patient_id: str) -> bool:
         return False
     session_state[key] = patient_id
     return True
+
