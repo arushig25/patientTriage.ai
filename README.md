@@ -103,26 +103,31 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Launch the application
+### 4. Launch the Application
 
-You can launch the app using any of the following options:
-
+#### Option A: Modern Emergency Command Center (React + FastAPI) — *Recommended*
 ```bash
-# Option A (Recommended): Direct Python execution (auto-bootstraps Streamlit)
-python app.py
+# Launch the full modern command center
+python server.py
 
-# Option B: One-click Windows runner
-.\run.bat
-# or in PowerShell:
-.\run.ps1
-
-# Option C: Standard Streamlit module execution
-python -m streamlit run app.py
+# Or use the one-click launcher:
+.\run.bat      # Windows CMD
+.\run.ps1      # PowerShell
 ```
+The modern command center will automatically open in your browser at **`http://localhost:8000`**.
 
-> **Note for Windows users:** If you encounter `An Application Control policy has blocked this file` when running `streamlit.exe`, use `python app.py` or `python -m streamlit run app.py` instead.
+Features include:
+- **Hospital Cockpit Aesthetic**: Dark medical telemetry theme with glowing ESI badges
+- **Live ECG Waveforms**: Animated heart-rate telemetry on patient cards
+- **Real-Time Priority Queue**: Dynamic wait-time countdown meters and breach alerts
+- **Interactive Simulator**: Instant live triage calculator for custom patient cases
+- **Audit Vault**: Cryptographic SHA-256 hash-chain verification and password unmasking
 
-The application will open in your browser at `http://localhost:8501`. On first launch, encrypted simulated patient data is automatically generated in `data/`.
+#### Option B: Classic Streamlit Interface (Fallback)
+```bash
+python app.py
+```
+Opens the classic Streamlit view at `http://localhost:8501`.
 
 > **Demo Credentials:** For the **Clinical Lead** role, use password `triage-lead-2026` to re-link pseudonymized audit tokens.
 
