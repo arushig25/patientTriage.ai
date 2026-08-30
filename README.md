@@ -81,19 +81,36 @@ patientTriage.ai/
 
 ## 🚀 Quick Start
 
+### 1. Clone the repository
 ```bash
-# Clone the repository
-git clone https://github.com/<your-username>/patientTriage.ai.git
+git clone https://github.com/arushig25/patientTriage.ai.git
 cd patientTriage.ai
+```
 
-# Install dependencies
+### 2. (Optional) Create a virtual environment
+```bash
+python -m venv .venv
+
+# On Windows:
+.venv\Scripts\activate
+
+# On macOS/Linux:
+source .venv/bin/activate
+```
+
+### 3. Install dependencies
+```bash
 pip install -r requirements.txt
+```
 
-# Launch the application
+### 4. Launch the application
+```bash
 streamlit run app.py
 ```
 
-The application will automatically generate simulated patient data on first run.
+The application will open in your browser at `http://localhost:8501`. On first launch, encrypted simulated patient data is automatically generated in `data/`.
+
+> **Demo Credentials:** For the **Clinical Lead** role, use password `triage-lead-2026` to re-link pseudonymized audit tokens.
 
 ---
 
